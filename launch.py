@@ -2,7 +2,7 @@ import os
 import subprocess
 
 def output_format():
-    selection = input("Please enter output format (1 for ROS 1, 2 for ROS 2): ")
+    selection = input("Please enter output format (1 for ROS 1 bag, 2 for ROS 2 bag): ")
 
     while selection not in ('1', '2'):
         selection = input("Invalid input. Please enter output format (1 for ROS 1, 2 for ROS 2): ")
@@ -19,5 +19,4 @@ def build_ros_image(selection):
 
 
 if __name__ == "__main__":
-    selection = output_format()
-    build_ros_image(selection)
+    build_ros_image(output_format())
