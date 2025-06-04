@@ -1,0 +1,8 @@
+services:
+  btbapp:
+    build: .
+    container_name: btb_container
+    volumes:
+      - ./bin_files:/root/bin_logs
+      - ./ros_bags_output:/root/bintobag/build/ros2_bag_output
+    working_dir: /root/bintobag/build
