@@ -24,8 +24,8 @@ IMU_BUFFER_MAX_LEN = 100
 LIDAR_FRAME_ID = "lidar"
 IMU_FRAME_ID = "imu"
 
-LIDAR_TOPIC = "/os_cloud_node/points"
-IMU_TOPIC = "/os_cloud_node/imu"
+LIDAR_TOPIC = "/livox/lidar"
+IMU_TOPIC = "/livox/imu"
 
 # Buffers for IMU data components
 duro_orientation_buffer = deque(maxlen=IMU_BUFFER_MAX_LEN)
@@ -286,7 +286,6 @@ def create_ros2_bag(bin_file_path, output_bag_dir):
     print(f"Processing .bin file: {bin_file_path} into {output_bag_dir}")
 
     duro_orientation_buffer.clear() # Clear for this bag file
-
     bin_envelope_timestamp_ms = 0
 
     with open(bin_file_path, 'rb') as log_file:

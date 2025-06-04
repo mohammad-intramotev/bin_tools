@@ -23,8 +23,8 @@ IMU_BUFFER_MAX_LEN = 100
 LIDAR_FRAME_ID = "lidar"
 IMU_FRAME_ID = "imu"
 
-LIDAR_TOPIC = "/os_cloud_node/points"
-IMU_TOPIC = "/os_cloud_node/imu"
+LIDAR_TOPIC = "/livox/lidar"
+IMU_TOPIC = "/livox/imu"
 
 # Buffers for IMU data components
 duro_orientation_buffer = deque(maxlen=IMU_BUFFER_MAX_LEN)
@@ -263,14 +263,12 @@ def create_ros1_bag(bin_file_path, output_bag_dir):
     # Open a ROS1 bag for writing
     bag_writer = rosbag.Bag(output_bag_dir, 'w')
 
-
     message_count_total = 0
     imu_combined_count = 0
     channel_counts = Counter()
     print(f"Processing .bin file: {bin_file_path} into {output_bag_dir}")
 
     duro_orientation_buffer.clear() # Clear for this bag file
-
     bin_envelope_timestamp_ms = 0
 
     with open(bin_file_path, 'rb') as log_file:
@@ -353,14 +351,14 @@ def create_ros1_bag(bin_file_path, output_bag_dir):
 
 def process_bin_path(input_path, output_base_dir):
     try:
-        print(f"Converting .bin files in directory: {input_path}")
+        print(f"Converting all .bin files in directory: {input_path}")
         bin_files = sorted(glob.glob(os.path.join(input_path, '*.bin')))
         if not bin_files:
             print(f"No .bin files found in {input_path}")
             return
         for bin_file in bin_files:
             base_name = os.path.splitext(os.path.basename(bin_file))[0]
-            output_bag_dir = os.path.join(output_base_dir, base_name + "_bag")
+            output_bag_dir = os.path.join(output_base_dir, base_name + ".bag")
             create_ros1_bag(bin_file, output_bag_dir)
     except:
         print(f"Invalid path: {input_path}")
