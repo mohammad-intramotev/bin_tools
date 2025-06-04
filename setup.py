@@ -13,8 +13,7 @@ def build_ros_image(selection):
     env = {**os.environ, "ROS_DISTRO": selection}
  
     try:
-        subprocess.run(["docker", "compose", "up", "--build"], env=env)
-        print(f"Successfully built distro: {selection}")
+        subprocess.run(["docker", "compose", "up", "--build"], env=env, check=True)
     except subprocess.CalledProcessError:
         print(f"Failed to build distro: {selection}")
         
