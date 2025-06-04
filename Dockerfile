@@ -23,5 +23,4 @@ COPY src/ .
 RUN echo 'source /opt/ros/${ROS_DISTRO}/setup.bash' >> /root/.bashrc
 
 # Default command
-# CMD ["python3", "bin_to_rosbag.py", "bin_files"]
-# CMD ["tail", "-f", "/dev/null"]
+CMD ["python3", "bin_to_rosbag.py", "bin_files"]
