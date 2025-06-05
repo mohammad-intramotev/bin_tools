@@ -24,8 +24,8 @@ IMU_BUFFER_MAX_LEN = 100
 LIDAR_FRAME_ID = "lidar"
 IMU_FRAME_ID = "imu"
 
-LIDAR_TOPIC = "/livox/lidar"
-IMU_TOPIC = "/livox/imu"
+LIDAR_TOPIC = "/os_cloud_node/points"
+IMU_TOPIC = "/os_cloud_node/imu"
 
 # Buffers for IMU data components
 duro_orientation_buffer = deque(maxlen=IMU_BUFFER_MAX_LEN)
