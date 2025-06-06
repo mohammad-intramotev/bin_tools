@@ -1,5 +1,5 @@
-# bin_to_rosbag
-Convert our .bin files to either ROS1 bag or ROS2 bag format.
+# bin_tools
+Various tools for our .bin log files.
 
 ## Setup
 1. Place `.bin` file(s) into [`bin_files/`](./bin_files/).  

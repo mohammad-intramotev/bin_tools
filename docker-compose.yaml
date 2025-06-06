@@ -1,10 +1,11 @@
 services:
-  btbapp:
+  btapp:
     build:
       context: .
       args:
-        ROS_DISTRO: ${ROS_DISTRO}
-    container_name: btb_container
+        ROS_DISTRO: ${ROS_DISTRO:-humble}
+    environment:
+      - COMMAND=${COMMAND}
     volumes:
       - ./bin_files:/root/bintobag/build/bin_files
       - ./ros_bags_output:/root/bintobag/build/ros_bags_output

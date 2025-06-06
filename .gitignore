@@ -1,3 +1,4 @@
 ros_bags_output/
 bin_files/*
 !.gitkeep
+__pycache__

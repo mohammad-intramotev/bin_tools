@@ -1,0 +1,2 @@
+def cmp():
+    pass
