@@ -1,7 +1,16 @@
+#!/usr/bin/env python3
+
 import os
 import subprocess
 
-from src import bin_merge, traj_cmp
+
+def bin_merge_command():
+    env = {**os.environ, "COMMAND": "bin_merge"}
+
+    try:
+        subprocess.run(["docker", "compose", "up", "--build"], env=env, check=True)
+    except subprocess.CalledProcessError:
+        print(f"Failed to build distro.")
 
 def output_format():
     selection = input("Please enter output format (1 for ROS 1 bag, 2 for ROS 2 bag): ")
@@ -19,25 +28,40 @@ def build_ros_image(selection):
     except subprocess.CalledProcessError:
         print(f"Failed to build distro: {selection}")
 
+def bin_to_tum_command():
+    env = {**os.environ, "COMMAND": "bin_to_tum_command"}
+
+    try:
+        subprocess.run(["docker", "compose", "up", "--build"], env=env, check=True)
+    except subprocess.CalledProcessError:
+        print(f"Failed to build distro")
+
+def traj_cmp_command():
+    env = {**os.environ, "COMMAND": "traj_cmp_command"}
+
+    try:
+        subprocess.run(["docker", "compose", "up", "--build"], env=env, check=True)
+    except subprocess.CalledProcessError:
+        print(f"Failed to build distro")
+
 
 if __name__ == "__main__":
     command = input("""
-        Welcome to bin_tools. Please enter a command:\n
-        1) Convert .bin to ROS bag
-        2) Combine multiple .bin files
-        3) Compare trajectories\n
+        Welcome to bin_tools. Please select a tool:\n
+        1) Combine multiple .bin files
+        2) Convert .bin to ROS bag
+        3) Compare trajectories
+        4) Create ground truth using GPS from .bin and convert to TUM format\n
         """)
-    
-    # Input path for commands
-    raw = input("\nPlease enter input path (or leave blank to use 'input_files/'): ").strip()
-    input_path = os.path.expanduser(raw or "input_files")
 
     match command:
         case "1":
             build_ros_image(output_format())
         case "2":
-            bin_merge.merge(input_path)
+            bin_merge_command()
         case "3":
-            pass
+            evo_traj()
+        case "4":
+            tum_conv()
         case _:
-            pass
+            print("Invalid choice. Exiting!")

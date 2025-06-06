@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import glob
 import math
 import os
@@ -13,21 +14,11 @@ import rosbag
 from sensor_msgs.msg import Imu, PointCloud2, PointField
 from std_msgs.msg import Header
 
-from common import livox_pb2, orientation_pb2, transformations as tf_transformations
+from common import constants, livox_pb2, orientation_pb2, transformations as tf_transformations
 
-# --- Constants ---
-GRAVITY_ACCEL = 9.80665 # m/s^2
-MAX_ORIENTATION_AGE_MS = 200 # Max age of orientation data to use
-IMU_BUFFER_MAX_LEN = 100
-
-LIDAR_FRAME_ID = "lidar"
-IMU_FRAME_ID = "imu"
-
-LIDAR_TOPIC = "/os_cloud_node/points"
-IMU_TOPIC = "/os_cloud_node/imu"
 
 # Buffers for IMU data components
-duro_orientation_buffer = deque(maxlen=IMU_BUFFER_MAX_LEN)
+duro_orientation_buffer = deque(maxlen=constants.IMU_BUFFER_MAX_LEN)
 
 
 def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
@@ -44,7 +35,7 @@ def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
                 len(packet.z_coords) == num_points and
                 len(packet.reflectivity) == num_points and
                 len(packet.timestamp_offset_us) == num_points):
-            proto_ts_debug = getattr(packet, 'system_timestamp_us', 'N/A') # Safety for debug print
+            proto_ts_debug = getattr(packet, 'system_timestamp_us', 'N/A')  # Safety for debug print
             print(f"DEBUG Points: Point_Packet field length mismatch for proto_ts {proto_ts_debug}. Num_points: {num_points}. Skipping packet.")
             return None
 
@@ -57,11 +48,8 @@ def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
             point_time_offset_sec = packet.timestamp_offset_us[i] / 1_000_000.0
             points_data_for_ros.append([x, y, z, intensity, point_time_offset_sec])
 
-        if hasattr(packet, 'timestamp_us') and packet.timestamp_us > 0:
-            header_time_sec = packet.timestamp_us / 1_000_000.0  # Microseconds to seconds
-        else:
-            print(f"WARNING: Livox Point_Packet missing or zero 'timestamp_us'. Falling back to logger's envelope timestamp {bin_envelope_timestamp_ms}ms for PCL header.")
-            header_time_sec = bin_envelope_timestamp_ms / 1000.0
+        # Use logger timestamp for all messages (consistent clock)
+        header_time_sec = bin_envelope_timestamp_ms / 1000.0
 
         sec_hdr = int(header_time_sec)
         nanosec_hdr = int((header_time_sec - sec_hdr) * 1_000_000_000)
@@ -111,33 +99,26 @@ def create_pointcloud2_msg(parsed_data, frame_id):
 def parse_livox_imu_data(raw_bytes, bin_envelope_timestamp_ms):
     """
     Parses Livox Imu_Data protobuf.
-    Returns original sensor timestamp for header and logger timestamp for age checks.
+    Returns logger timestamp for header and data payload.
     """
-
     try:
         packet = livox_pb2.Imu_Data()
         packet.ParseFromString(raw_bytes)
 
-        if hasattr(packet, 'timestamp_us') and packet.timestamp_us > 0:
-            original_sensor_time = packet.timestamp_us / 1_000_000.0
-            sensor_time_sec_hdr = int(original_sensor_time)
-            sensor_time_nanosec_hdr = int((original_sensor_time - sensor_time_sec_hdr) * 1_000_000_000)
-        else:
-            print(f"WARNING: Livox Imu_Data missing or zero 'timestamp_us'. "
-                  f"Falling back to logger timestamp {bin_envelope_timestamp_ms}ms for header.")
-            fallback_time = bin_envelope_timestamp_ms / 1000.0
-            sensor_time_sec_hdr = int(fallback_time)
-            sensor_time_nanosec_hdr = int((fallback_time - sensor_time_sec_hdr) * 1_000_000_000)
+        # Use logger timestamp for header (consistent clock)
+        header_time_sec = bin_envelope_timestamp_ms / 1000.0
+        header_sec = int(header_time_sec)
+        header_nanosec = int((header_time_sec - header_sec) * 1_000_000_000)
 
         return {
-            'original_sensor_sec': sensor_time_sec_hdr,
-            'original_sensor_nanosec': sensor_time_nanosec_hdr,
-            'logger_timestamp_ms': bin_envelope_timestamp_ms, # For age comparison
+            'header_sec': header_sec,
+            'header_nanosec': header_nanosec,
+            'logger_timestamp_ms': bin_envelope_timestamp_ms,  # For age comparison
             'angular_velocity': [packet.gyro_x, packet.gyro_y, packet.gyro_z],
             'linear_acceleration': [
-                packet.acc_x * GRAVITY_ACCEL,
-                packet.acc_y * GRAVITY_ACCEL,
-                packet.acc_z * GRAVITY_ACCEL
+                packet.acc_x * constants.GRAVITY_ACCEL,
+                packet.acc_y * constants.GRAVITY_ACCEL,
+                packet.acc_z * constants.GRAVITY_ACCEL
             ]
         }
     except Exception as e:
@@ -159,7 +140,7 @@ def parse_duro_orient_euler(raw_bytes, bin_envelope_timestamp_ms):
         yaw_rad = math.radians(packet.yaw / 1_000_000.0)
         q = tf_transformations.quaternion_from_euler(roll_rad, pitch_rad, yaw_rad)
         return {
-            'logger_timestamp_ms': bin_envelope_timestamp_ms, # For age comparison
+            'logger_timestamp_ms': bin_envelope_timestamp_ms,  # For age comparison
             'orientation_q': [q[0], q[1], q[2], q[3]]
         }
     except Exception as e:
@@ -170,11 +151,12 @@ def parse_duro_orient_euler(raw_bytes, bin_envelope_timestamp_ms):
 
 def create_combined_imu_msg(livox_data, duro_data, frame_id):
     """
-    Builds a sensor_msgs/Imu message from combined Livox IMU + Duro orientation.
+    Builds a sensor_msgs/Imu message from combined Livox IMU + Duro orientation,
+    using the logger clock for the header timestamp.
     """
     msg = Imu()
-    msg.header.stamp = rospy.Time(livox_data['original_sensor_sec'],
-                                  livox_data['original_sensor_nanosec'])
+    # Use the logger-based header time
+    msg.header.stamp = rospy.Time(livox_data['header_sec'], livox_data['header_nanosec'])
     msg.header.frame_id = frame_id
 
     # Fill orientation from Duro quaternion
@@ -186,7 +168,7 @@ def create_combined_imu_msg(livox_data, duro_data, frame_id):
     msg.orientation_covariance[4] = 0.01
     msg.orientation_covariance[8] = 0.01
     for i in [1, 2, 3, 5, 6, 7]:
-        msg.orientation_covariance[i] = 0.0 # Initialize others
+        msg.orientation_covariance[i] = 0.0  # Initialize others
 
     # Fill angular velocity from Livox IMU
     msg.angular_velocity.x = livox_data['angular_velocity'][0]
@@ -196,7 +178,7 @@ def create_combined_imu_msg(livox_data, duro_data, frame_id):
     msg.angular_velocity_covariance[4] = 0.01
     msg.angular_velocity_covariance[8] = 0.01
     for i in [1, 2, 3, 5, 6, 7]:
-        msg.angular_velocity_covariance[i] = 0.0 # Initialize others
+        msg.angular_velocity_covariance[i] = 0.0  # Initialize others
 
     # Fill linear acceleration from Livox IMU
     msg.linear_acceleration.x = livox_data['linear_acceleration'][0]
@@ -206,7 +188,7 @@ def create_combined_imu_msg(livox_data, duro_data, frame_id):
     msg.linear_acceleration_covariance[4] = 0.01
     msg.linear_acceleration_covariance[8] = 0.01
     for i in [1, 2, 3, 5, 6, 7]:
-        msg.linear_acceleration_covariance[i] = 0.0 # Initialize others
+        msg.linear_acceleration_covariance[i] = 0.0  # Initialize others
 
     return msg
 
@@ -220,26 +202,20 @@ def try_combine_imu_data_new(current_livox_imu_data, bag_writer):
         return 0
 
     best_duro_data = None
-    # Age comparison uses logger timestamps for pragmatic synchronization checking
-    # current_livox_imu_data['logger_timestamp_ms'] is used here
-    # d_data['logger_timestamp_ms'] is used from duro_orientation_buffer
     for d_data in reversed(duro_orientation_buffer):
-        # Use logger timestamps (both are in milliseconds)
+        # Both timestamps in milliseconds
         if d_data['logger_timestamp_ms'] <= current_livox_imu_data['logger_timestamp_ms']:
-            if (current_livox_imu_data['logger_timestamp_ms'] - d_data['logger_timestamp_ms']) <= MAX_ORIENTATION_AGE_MS:
+            if (current_livox_imu_data['logger_timestamp_ms'] - d_data['logger_timestamp_ms']) <= constants.MAX_ORIENTATION_AGE_MS:
                 best_duro_data = d_data
                 break
             else:
-                # print(f"DEBUG IMU Combine: Stale Duro data found...")
                 break
 
     if best_duro_data:
-        imu_msg = create_combined_imu_msg(current_livox_imu_data, best_duro_data, IMU_FRAME_ID)
+        imu_msg = create_combined_imu_msg(current_livox_imu_data, best_duro_data, constants.IMU_FRAME_ID)
         if imu_msg:
-            bag_writer.write(IMU_TOPIC, imu_msg)
+            bag_writer.write(constants.IMU_TOPIC, imu_msg)
             return 1
-    # else:
-        # print(f"DEBUG IMU Combine: No suitable Duro orientation found...")
     return 0
 
 
@@ -268,7 +244,7 @@ def create_ros1_bag(bin_file_path, output_bag_dir):
     channel_counts = Counter()
     print(f"Processing .bin file: {bin_file_path} into {output_bag_dir}")
 
-    duro_orientation_buffer.clear() # Clear for this bag file
+    duro_orientation_buffer.clear()  # Clear for this bag file
     bin_envelope_timestamp_ms = 0
 
     with open(bin_file_path, 'rb') as log_file:
@@ -320,9 +296,9 @@ def create_ros1_bag(bin_file_path, output_bag_dir):
                 continue
 
             if channel_name == "avia_points":
-                ros_msg = create_pointcloud2_msg(parsed_data, LIDAR_FRAME_ID)
+                ros_msg = create_pointcloud2_msg(parsed_data, constants.LIDAR_FRAME_ID)
                 if ros_msg:
-                    bag_writer.write(LIDAR_TOPIC, ros_msg)
+                    bag_writer.write(constants.LIDAR_TOPIC, ros_msg)
                     message_count_total += 1
 
             elif channel_name == "duro_gps_orient_eule":
@@ -336,7 +312,7 @@ def create_ros1_bag(bin_file_path, output_bag_dir):
 
             if message_count_total > 0 and (message_count_total % 200) == 0:
                 print(f"[{os.path.basename(output_bag_dir)}] Wrote {message_count_total} ROS msgs "
-                    f"(IMU combined: {imu_combined_count})...")
+                      f"(IMU combined: {imu_combined_count})...")
 
         print(f"[{os.path.basename(output_bag_dir)}] Completed reading {os.path.basename(bin_file_path)}. "
               f"Channel distribution:")
@@ -369,11 +345,8 @@ if __name__ == "__main__":
         print("Usage: python your_script_name.py <input_bin_file_or_dir> [output_base_directory]")
         sys.exit(1)
 
-    input_path_arg = sys.argv[1]
-    output_base_dir_arg = sys.argv[2] if len(sys.argv) > 2 else "ros_bags_output/ros1_bags"
+    if not os.path.exists(constants.OUTPUT_ROSBAGS):
+        os.makedirs(constants.OUTPUT_ROSBAGS)
 
-    if not os.path.exists(output_base_dir_arg):
-        os.makedirs(output_base_dir_arg)
-
-    process_bin_path(input_path_arg, output_base_dir_arg)
+    process_bin_path(constants.INPUT_ROSBAG_BIN, constants.OUTPUT_ROSBAGS)
     print("Conversion to ROS 1 bag complete.")

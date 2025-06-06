@@ -6,6 +6,7 @@ services:
         ROS_DISTRO: ${ROS_DISTRO:-humble}
     environment:
       - COMMAND=${COMMAND}
+    container_name: bt_container
     volumes:
-      - ./bin_files:/root/bintobag/build/bin_files
-      - ./ros_bags_output:/root/bintobag/build/ros_bags_output
+      - ./input_files:/root/bin_tools/build/input_files
+      - ./output_files:/root/bin_tools/build/output_files

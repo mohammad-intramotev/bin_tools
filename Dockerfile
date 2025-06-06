@@ -1,11 +1,11 @@
-ARG ROS_DISTRO
+ARG ROS_DISTRO=humble
 FROM ros:${ROS_DISTRO}-ros-base
 
 RUN apt-get update || true && \
     apt-get install -y python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir numpy protobuf evo
+RUN pip3 install --no-cache-dir numpy protobuf evo pyproj
 
 # If we're on ROS2 (humble), install tf-transformations
 RUN if [ "$ROS_DISTRO" = "humble" ]; then \
@@ -26,3 +26,6 @@ RUN chmod +x /entrypoint.sh
 
 # Set the entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
+
+# For development
+# CMD ["tail", "-f", "/dev/null"]

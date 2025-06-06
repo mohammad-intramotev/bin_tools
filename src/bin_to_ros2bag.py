@@ -14,21 +14,11 @@ from rclpy.serialization import serialize_message
 from sensor_msgs.msg import Imu, PointCloud2, PointField
 from std_msgs.msg import Header
 
-from common import livox_pb2, orientation_pb2
+from common import constants, livox_pb2, orientation_pb2
 
-# --- Constants ---
-GRAVITY_ACCEL = 9.80665 # m/s^2
-MAX_ORIENTATION_AGE_MS = 200 # Max age of orientation data to use
-IMU_BUFFER_MAX_LEN = 100
-
-LIDAR_FRAME_ID = "lidar"
-IMU_FRAME_ID = "imu"
-
-LIDAR_TOPIC = "/os_cloud_node/points"
-IMU_TOPIC = "/os_cloud_node/imu"
 
 # Buffers for IMU data components
-duro_orientation_buffer = deque(maxlen=IMU_BUFFER_MAX_LEN)
+duro_orientation_buffer = deque(maxlen=constants.IMU_BUFFER_MAX_LEN)
 
 
 def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
@@ -137,9 +127,9 @@ def parse_livox_imu_data(raw_bytes, bin_envelope_timestamp_ms):
             'logger_timestamp_ms': bin_envelope_timestamp_ms, # For age comparison
             'angular_velocity': [packet.gyro_x, packet.gyro_y, packet.gyro_z],
             'linear_acceleration': [
-                packet.acc_x * GRAVITY_ACCEL,
-                packet.acc_y * GRAVITY_ACCEL,
-                packet.acc_z * GRAVITY_ACCEL
+                packet.acc_x * constants.GRAVITY_ACCEL,
+                packet.acc_y * constants.GRAVITY_ACCEL,
+                packet.acc_z * constants.GRAVITY_ACCEL
             ]
         }
     except Exception as e:
@@ -227,7 +217,7 @@ def try_combine_imu_data_new(current_livox_imu_data, bag_writer):
     for d_data in reversed(duro_orientation_buffer):
         # Use logger timestamps (both are in milliseconds)
         if d_data['logger_timestamp_ms'] <= current_livox_imu_data['logger_timestamp_ms']:
-            if (current_livox_imu_data['logger_timestamp_ms'] - d_data['logger_timestamp_ms']) <= MAX_ORIENTATION_AGE_MS:
+            if (current_livox_imu_data['logger_timestamp_ms'] - d_data['logger_timestamp_ms']) <= constants.constants.MAX_ORIENTATION_AGE_MS:
                 best_duro_data = d_data
                 break
             else:
@@ -235,10 +225,10 @@ def try_combine_imu_data_new(current_livox_imu_data, bag_writer):
                 break
 
     if best_duro_data:
-        imu_msg = create_combined_imu_msg(current_livox_imu_data, best_duro_data, IMU_FRAME_ID)
+        imu_msg = create_combined_imu_msg(current_livox_imu_data, best_duro_data, constants.IMU_FRAME_ID)
         if imu_msg:
             ros_timestamp_ns = (imu_msg.header.stamp.sec * 1_000_000_000) + imu_msg.header.stamp.nanosec
-            bag_writer.write(IMU_TOPIC, serialize_message(imu_msg), ros_timestamp_ns)
+            bag_writer.write(constants.IMU_TOPIC, serialize_message(imu_msg), ros_timestamp_ns)
             return 1
     # else:
         # print(f"DEBUG IMU Combine: No suitable Duro orientation found...")
@@ -273,12 +263,12 @@ def create_ros2_bag(bin_file_path, output_bag_dir):
     bag_writer.open(storage_options, converter_options)
 
     topic_metadata_map = {
-        LIDAR_TOPIC: rosbag2_py.TopicMetadata(name=LIDAR_TOPIC, type='sensor_msgs/msg/PointCloud2', serialization_format='cdr'),
-        IMU_TOPIC: rosbag2_py.TopicMetadata(name=IMU_TOPIC, type='sensor_msgs/msg/Imu', serialization_format='cdr')
+        constants.LIDAR_TOPIC: rosbag2_py.TopicMetadata(name=constants.LIDAR_TOPIC, type='sensor_msgs/msg/PointCloud2', serialization_format='cdr'),
+        constants.IMU_TOPIC: rosbag2_py.TopicMetadata(name=constants.IMU_TOPIC, type='sensor_msgs/msg/Imu', serialization_format='cdr')
     }
-    bag_writer.create_topic(topic_metadata_map[LIDAR_TOPIC])
-    bag_writer.create_topic(topic_metadata_map[IMU_TOPIC])
-    print(f"Registered topics: {LIDAR_TOPIC}, {IMU_TOPIC} for bag {output_bag_dir}")
+    bag_writer.create_topic(topic_metadata_map[constants.LIDAR_TOPIC])
+    bag_writer.create_topic(topic_metadata_map[constants.IMU_TOPIC])
+    print(f"Registered topics: {constants.LIDAR_TOPIC}, {constants.IMU_TOPIC} for bag {output_bag_dir}")
 
     message_count_total = 0
     imu_combined_count = 0
@@ -337,10 +327,10 @@ def create_ros2_bag(bin_file_path, output_bag_dir):
                 continue
 
             if channel_name == "avia_points":
-                ros_msg = create_pointcloud2_msg(parsed_data, LIDAR_FRAME_ID)
+                ros_msg = create_pointcloud2_msg(parsed_data, constants.LIDAR_FRAME_ID)
                 if ros_msg:
                     ros_timestamp_ns = (parsed_data['sec'] * 1_000_000_000) + parsed_data['nanosec']
-                    bag_writer.write(LIDAR_TOPIC, serialize_message(ros_msg), ros_timestamp_ns)
+                    bag_writer.write(constants.LIDAR_TOPIC, serialize_message(ros_msg), ros_timestamp_ns)
                     message_count_total += 1
 
             elif channel_name == "duro_gps_orient_eule":
@@ -387,11 +377,8 @@ if __name__ == "__main__":
         print("Usage: python your_script_name.py <input_bin_file_or_dir> [output_base_directory]")
         sys.exit(1)
 
-    input_path_arg = sys.argv[1]
-    output_base_dir_arg = sys.argv[2] if len(sys.argv) > 2 else "ros_bags_output/ros2_bags"
+    if not os.path.exists(constants.OUTPUT_ROSBAGS):
+        os.makedirs(constants.OUTPUT_ROSBAGS)
 
-    if not os.path.exists(output_base_dir_arg):
-        os.makedirs(output_base_dir_arg)
-
-    process_bin_path(input_path_arg, output_base_dir_arg)
+    process_bin_path(constants.INPUT_ROSBAG_BIN, constants.OUTPUT_ROSBAGS)
     print("Conversion to ROS 2 bag complete.")
