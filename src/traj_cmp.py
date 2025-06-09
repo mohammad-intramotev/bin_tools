@@ -4,8 +4,7 @@ import subprocess
 import os
 from common import config
 
-output_dir = config.OUTPUT_TRAJ_FILES
-os.makedirs(output_dir, exist_ok=True)
+os.makedirs(config.OUTPUT_TRAJ_FILES, exist_ok=True)
 
 
 # --- Tool 1: Plot Trajectories (evo_traj) ---
@@ -31,7 +30,7 @@ subprocess.run([
     '-va',
     '--plot',
     '--plot_mode', 'xyz',
-    '--save_plot', os.path.join(output_dir, 'traj_plot.png')
+    '--save_plot', os.path.join(config.OUTPUT_TRAJ_FILES, 'traj_plot.png')
 ], check=True)
 
 
@@ -44,8 +43,8 @@ subprocess.run([
     config.INPUT_TRAJ_2,
     '-va',
     '--plot',
-    '--save_plot', os.path.join(output_dir, 'rpe_plot.png'),
-    '--save_results', os.path.join(output_dir, 'rpe_results.zip')
+    '--save_plot', os.path.join(config.OUTPUT_TRAJ_FILES, 'rpe_plot.png'),
+    '--save_results', os.path.join(config.OUTPUT_TRAJ_FILES, 'rpe_results.zip')
 ], check=True)
 
-print(f"\nEvaluation complete! Results saved in '{output_dir}'.")
+print(f"\nEvaluation complete! Results saved in '{config.OUTPUT_TRAJ_FILES}'.")
