@@ -1,6 +1,3 @@
-from pyproj import CRS
-
-
 INPUT_FILES = "input_files"
 # -- For bin_merge.py
 INPUT_MERGE_BIN = f"{INPUT_FILES}/example.bin" 
@@ -32,8 +29,6 @@ LIDAR_TOPIC = "/livox/lidar"
 IMU_TOPIC = "/livox/imu"
 
 # --- For bin_to_tum.py
-GPS_ORIENTATION_CHANNEL = "duro_gps_orient_eule"
-GPS_POSITION_CHANNEL = "duro_gps_llh"
-IN_PROJ = CRS("EPSG:4326")  # GPS Coordinate System
-OUT_PROJ = CRS("EPSG:32615") # GPS Coordinate System
+POS_CHANNEL_NAME = "duro_gps_llh"
+ORIENT_CHANNEL_NAME = "duro_gps_orient_eule"
 MAX_GPS_FUSION_AGE_MS = 75

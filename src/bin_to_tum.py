@@ -1,176 +1,128 @@
-#!/usr/bin/env python3
-
-import os
 import sys
-import math
-from collections import deque, Counter
-from pyproj import Transformer
+import struct
+import numpy as np
+import pymap3d as pm
+from scipy.spatial.transform import Rotation as R
 
-from common import config, navigation_pb2, orientation_pb2, transformations as tf_transformations
-
-
-# --- GPS Coordinate System ---
-transformer = Transformer.from_crs(config.IN_PROJ, config.OUT_PROJ, always_xy=True)
-
-# Buffers and state
-gps_position_buffer = deque(maxlen=100)
-gps_orientation_buffer = deque(maxlen=100)
-gps_origin_xyz = None
-channel_counter = Counter()
-rtk_fix_status_counter = Counter()
+from common import navigation_pb2, orientation_pb2, config
 
 
-def parse_duro_llh(raw_bytes, ts_ms):
-    try:
-        packet = navigation_pb2.MsgPosLlh()
-        packet.ParseFromString(raw_bytes)
-        fix_mode = packet.flags & 0b111
-        is_rtk_fixed = fix_mode == 2 or (fix_mode == 3)
-        rtk_fix_status_counter[fix_mode] += 1
-        return {
-            'logger_time_ms': ts_ms,
-            'lat': packet.lat,
-            'lon': packet.lon,
-            'alt': packet.height,
-            'is_rtk_fixed': is_rtk_fixed
-        }
-    except Exception:
-        return None
+def euler_to_quaternion(roll, pitch, yaw):
+    """
+    Converts Euler angles (in degrees) to a quaternion (qx, qy, qz, qw).
+    
+    Args:
+        roll (float): Roll angle in degrees.
+        pitch (float): Pitch angle in degrees.
+        yaw (float): Yaw angle in degrees.
+        
+    Returns:
+        A numpy array [qx, qy, qz, qw].
+    """
+    return R.from_euler('zyx', [yaw, pitch, roll], degrees=True).as_quat()
 
+def lla_to_enu(lat, lon, alt, lat_ref, lon_ref, alt_ref):
+    """Converts Latitude, Longitude, Altitude (LLA) to a local East, North, Up (ENU) frame."""
+    return pm.geodetic2enu(lat, lon, alt, lat_ref, lon_ref, alt_ref)
 
-def parse_duro_orient_euler(raw_bytes, ts_ms):
-    try:
-        packet = orientation_pb2.MsgOrientEuler()
-        packet.ParseFromString(raw_bytes)
-        q = tf_transformations.quaternion_from_euler(
-            math.radians(packet.roll / 1e6),
-            math.radians(packet.pitch / 1e6),
-            math.radians(packet.yaw / 1e6)
-        )
-        return {'logger_time_ms': ts_ms, 'orientation_q': q}
-    except Exception:
-        return None
+def process_log_file(input_bin_file, output_tum_file):
+    """
+    Reads a binary log file with a specific custom format, extracts position and
+    orientation data, and converts it to a TUM trajectory file.
+    """
+    positions = []
+    orientations = []
+    records_processed = 0
 
-
-def try_create_ground_truth_point(gt_file_writer):
-    global gps_origin_xyz
-    if not gps_position_buffer or not gps_orientation_buffer:
-        if not hasattr(try_create_ground_truth_point, "buffer_warn_printed"):
-            print("DEBUG: Attempting to fuse, but at least one data buffer is empty.")
-            try_create_ground_truth_point.buffer_warn_printed = True
-        return 0
-
-    pos_data = gps_position_buffer.popleft()
-    best_orient_data = None
-    min_time_delta = float('inf')
-
-    for orient_data in gps_orientation_buffer:
-        time_delta = abs(pos_data['logger_time_ms'] - orient_data['logger_time_ms'])
-        if time_delta < min_time_delta:
-            min_time_delta = time_delta
-        if time_delta <= config.MAX_GPS_FUSION_AGE_MS:
-            best_orient_data = orient_data
-            break
-
-    if best_orient_data:
-        if not pos_data['is_rtk_fixed']:
-            if not hasattr(try_create_ground_truth_point, "rtk_warn_printed"):
-                print("DEBUG: Found a time-synced GPS pair, but the position data is NOT RTK Fixed. Skipping as it's not ground truth.")
-                try_create_ground_truth_point.rtk_warn_printed = True
-            return 0
-
-        x, y = transformer.transform(pos_data['lon'], pos_data['lat'])
-        z = pos_data['alt']
-
-        if gps_origin_xyz is None:
-            gps_origin_xyz = (x, y, z)
-            print(f"DEBUG: Set ground truth origin (UTM): {gps_origin_xyz}")
-
-        tx, ty, tz = x - gps_origin_xyz[0], y - gps_origin_xyz[1], z - gps_origin_xyz[2]
-        qx, qy, qz, qw = best_orient_data['orientation_q']
-        timestamp = pos_data['logger_time_ms'] / 1000.0
-
-        gt_file_writer.write(f"{timestamp:.6f} {tx:.6f} {ty:.6f} {tz:.6f} {qx:.6f} {qy:.6f} {qz:.6f} {qw:.6f}\n")
-        return 1
-    else:
-        if not hasattr(try_create_ground_truth_point, "time_warn_printed"):
-            print(f"DEBUG: Could not find a time-synced orientation message for a position message.")
-            print(f"       The smallest time difference found was {min_time_delta} ms, which is > constants.MAX_GPS_FUSION_AGE_MS ({config.MAX_GPS_FUSION_AGE_MS} ms).")
-            try_create_ground_truth_point.time_warn_printed = True
-    return 0
-
-
-def main():
-    if not os.path.exists(config.INPUT_TUM_BIN):
-        print(f"Error: Input .bin file not found at: {config.INPUT_TUM_BIN}")
-        sys.exit(1)
-
-    print(f"--- Running Ground Truth Diagnostics ---")
-    print(f"Input: {config.INPUT_TUM_BIN}")
-
-    gt_file = open(config.OUTPUT_TUM_FILE, 'w')
-    pos_parsed_count = 0
-    orient_parsed_count = 0
-    total_gt_points = 0
-
-    with open(config.INPUT_TUM_BIN, 'rb') as log_file:
+    print(f"Reading data from {input_bin_file}...")
+    
+    with open(input_bin_file, 'rb') as f:
         while True:
-            header_bytes = log_file.read(9)
-            if not header_bytes:
+            try:
+                # 1. Read Timestamp (8 bytes)
+                timestamp_bytes = f.read(8)
+                if not timestamp_bytes:
+                    break  # End of file
+                
+                # 2. Read Channel Name Length (1 byte)
+                channel_len_bytes = f.read(1)
+                channel_len = struct.unpack('>B', channel_len_bytes)[0]
+                
+                # 3. Read Channel Name (L bytes)
+                channel_name_bytes = f.read(channel_len)
+                channel_name = channel_name_bytes.decode('utf-8')
+                
+                # 4. Read Protobuf Message Length (4 bytes)
+                msg_len_bytes = f.read(4)
+                msg_len = struct.unpack('>L', msg_len_bytes)[0]
+                
+                # 5. Read Protobuf Message Data (M bytes)
+                payload = f.read(msg_len)
+                
+                records_processed += 1
+
+                # Check if this is a channel we care about
+                if channel_name == config.POS_CHANNEL_NAME:
+                    pos_msg = navigation_pb2.MsgPosLlh()
+                    pos_msg.ParseFromString(payload)
+                    positions.append(pos_msg)
+                
+                elif channel_name == config.ORIENT_CHANNEL_NAME:
+                    orient_msg = orientation_pb2.MsgOrientEuler()
+                    orient_msg.ParseFromString(payload)
+                    orientations.append(orient_msg)
+
+            except (struct.error, IndexError) as e:
+                print(f"Warning: Stopped reading due to incomplete record at end of file. Error: {e}")
                 break
-            ts_ms = int.from_bytes(header_bytes[0:8], byteorder='big')
-            channel_len = header_bytes[8]
 
-            channel_name = log_file.read(channel_len).decode('utf-8', errors='replace')
-            channel_counter[channel_name] += 1
+    print(f"Finished reading. Processed {records_processed} records.")
+    print(f"Found {len(positions)} position messages on channel '{config.POS_CHANNEL_NAME}'.")
+    print(f"Found {len(orientations)} orientation messages on channel '{config.ORIENT_CHANNEL_NAME}'.")
 
-            msg_len_bytes = log_file.read(4)
-            if not msg_len_bytes:
-                break
-            msg_len = int.from_bytes(msg_len_bytes, byteorder='big')
+    if not positions or not orientations:
+        print("\nError: No position or orientation data found. Cannot create TUM file.", file=sys.stderr)
+        return
 
-            raw_msg_data = log_file.read(msg_len)
-            if len(raw_msg_data) != msg_len:
-                break
+    positions.sort(key=lambda p: p.tow)
+    orientations.sort(key=lambda o: o.tow)
 
-            if channel_name == config.GPS_ORIENTATION_CHANNEL:
-                parsed = parse_duro_orient_euler(raw_msg_data, ts_ms)
-                if parsed:
-                    gps_orientation_buffer.append(parsed)
-                    orient_parsed_count += 1
+    ref_pos = positions[0]
+    lat_ref, lon_ref, alt_ref = ref_pos.lat, ref_pos.lon, ref_pos.height
+    print(f"\nUsing first GPS point as origin: Lat={lat_ref:.6f}, Lon={lon_ref:.6f}, Height={alt_ref:.2f} m")
 
-            elif channel_name == config.GPS_POSITION_CHANNEL:
-                parsed = parse_duro_llh(raw_msg_data, ts_ms)
-                if parsed:
-                    gps_position_buffer.append(parsed)
-                    pos_parsed_count += 1
-                    total_gt_points += try_create_ground_truth_point(gt_file)
+    orient_tows = np.array([o.tow for o in orientations])
 
-    gt_file.close()
+    print(f"Synchronizing data and writing to {output_tum_file}...")
+    with open(output_tum_file, 'w') as tum_file:
+        for pos_msg in positions:
+            time_diffs = np.abs(orient_tows - pos_msg.tow)
+            closest_idx = np.argmin(time_diffs)
+            
+            if time_diffs[closest_idx] > config.MAX_GPS_FUSION_AGE_MS:
+                continue
 
-    print("\n--- Diagnostics Report ---")
-    print("\n[1] Channels found in .bin file:")
-    for name, count in channel_counter.items():
-        print(f"  - '{name}': {count} messages")
+            orient_msg = orientations[closest_idx]
+            
+            # 1. Timestamp (convert GPS Time of Week from ms to seconds)
+            timestamp = pos_msg.tow / 1000.0
 
-    print("\n[2] Parsed GPS Message Counts:")
-    print(f"  - Position messages ('{config.GPS_POSITION_CHANNEL}'): {pos_parsed_count} parsed")
-    print(f"  - Orientation messages ('{config.GPS_ORIENTATION_CHANNEL}'): {orient_parsed_count} parsed")
+            # 2. Position: Convert LLA to local ENU
+            tx, ty, tz = lla_to_enu(pos_msg.lat, pos_msg.lon, pos_msg.height, lat_ref, lon_ref, alt_ref)
+            
+            # 3. Orientation: Convert scaled Euler angles to a quaternion
+            # SBP spec for MsgOrientEuler gives roll/pitch/yaw as scaled integers in micro-degrees.
+            roll_deg = orient_msg.roll * 1e-6
+            pitch_deg = orient_msg.pitch * 1e-6
+            yaw_deg = orient_msg.yaw * 1e-6
+            
+            # Note: The scipy `as_quat()` returns in [x, y, z, w] order, which is what we need.
+            qx, qy, qz, qw = euler_to_quaternion(roll_deg, pitch_deg, yaw_deg)
 
-    print("\n[3] RTK Fix Status Counts (for parsed position messages):")
-    if not rtk_fix_status_counter:
-        print("  - No position messages with status flags were parsed.")
-    else:
-        print(f"  - RTK Fixed (mode=2): {rtk_fix_status_counter.get(2, 0)} points")
-        print(f"  - RTK Float (mode=1): {rtk_fix_status_counter.get(1, 0)} points")
-        print(f"  - No Solution (mode=0): {rtk_fix_status_counter.get(0, 0)} points")
-        for mode, count in rtk_fix_status_counter.items():
-            if mode not in [0, 1, 2]:
-                print(f"  - Other (mode={mode}): {count} points")
+            # Write the formatted line to the file
+            tum_file.write(f"{timestamp:.6f} {tx:.6f} {ty:.6f} {tz:.6f} {qx:.8f} {qy:.8f} {qz:.8f} {qw:.8f}\n")
+            
+    print("Done. TUM file generated successfully.")
 
-    print("\n--- Final Result ---")
-    print(f"Ground truth creation complete! Wrote {total_gt_points} valid RTK points to {config.OUTPUT_TUM_FILE}")
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    process_log_file(config.INPUT_TUM_BIN, config.OUTPUT_TUM_FILE)
