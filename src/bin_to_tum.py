@@ -6,11 +6,11 @@ import math
 from collections import deque, Counter
 from pyproj import Transformer
 
-from common import constants, navigation_pb2, orientation_pb2, transformations as tf_transformations
+from common import config, navigation_pb2, orientation_pb2, transformations as tf_transformations
 
 
 # --- GPS Coordinate System ---
-transformer = Transformer.from_crs(constants.IN_PROJ, constants.OUT_PROJ, always_xy=True)
+transformer = Transformer.from_crs(config.IN_PROJ, config.OUT_PROJ, always_xy=True)
 
 # Buffers and state
 gps_position_buffer = deque(maxlen=100)
@@ -68,7 +68,7 @@ def try_create_ground_truth_point(gt_file_writer):
         time_delta = abs(pos_data['logger_time_ms'] - orient_data['logger_time_ms'])
         if time_delta < min_time_delta:
             min_time_delta = time_delta
-        if time_delta <= constants.MAX_GPS_FUSION_AGE_MS:
+        if time_delta <= config.MAX_GPS_FUSION_AGE_MS:
             best_orient_data = orient_data
             break
 
@@ -95,25 +95,25 @@ def try_create_ground_truth_point(gt_file_writer):
     else:
         if not hasattr(try_create_ground_truth_point, "time_warn_printed"):
             print(f"DEBUG: Could not find a time-synced orientation message for a position message.")
-            print(f"       The smallest time difference found was {min_time_delta} ms, which is > constants.MAX_GPS_FUSION_AGE_MS ({constants.MAX_GPS_FUSION_AGE_MS} ms).")
+            print(f"       The smallest time difference found was {min_time_delta} ms, which is > constants.MAX_GPS_FUSION_AGE_MS ({config.MAX_GPS_FUSION_AGE_MS} ms).")
             try_create_ground_truth_point.time_warn_printed = True
     return 0
 
 
 def main():
-    if not os.path.exists(constants.INPUT_TUM_BIN):
-        print(f"Error: Input .bin file not found at: {constants.INPUT_TUM_BIN}")
+    if not os.path.exists(config.INPUT_TUM_BIN):
+        print(f"Error: Input .bin file not found at: {config.INPUT_TUM_BIN}")
         sys.exit(1)
 
     print(f"--- Running Ground Truth Diagnostics ---")
-    print(f"Input: {constants.INPUT_TUM_BIN}")
+    print(f"Input: {config.INPUT_TUM_BIN}")
 
-    gt_file = open(constants.OUTPUT_TUM_FILE, 'w')
+    gt_file = open(config.OUTPUT_TUM_FILE, 'w')
     pos_parsed_count = 0
     orient_parsed_count = 0
     total_gt_points = 0
 
-    with open(constants.INPUT_TUM_BIN, 'rb') as log_file:
+    with open(config.INPUT_TUM_BIN, 'rb') as log_file:
         while True:
             header_bytes = log_file.read(9)
             if not header_bytes:
@@ -133,13 +133,13 @@ def main():
             if len(raw_msg_data) != msg_len:
                 break
 
-            if channel_name == constants.GPS_ORIENTATION_CHANNEL:
+            if channel_name == config.GPS_ORIENTATION_CHANNEL:
                 parsed = parse_duro_orient_euler(raw_msg_data, ts_ms)
                 if parsed:
                     gps_orientation_buffer.append(parsed)
                     orient_parsed_count += 1
 
-            elif channel_name == constants.GPS_POSITION_CHANNEL:
+            elif channel_name == config.GPS_POSITION_CHANNEL:
                 parsed = parse_duro_llh(raw_msg_data, ts_ms)
                 if parsed:
                     gps_position_buffer.append(parsed)
@@ -154,8 +154,8 @@ def main():
         print(f"  - '{name}': {count} messages")
 
     print("\n[2] Parsed GPS Message Counts:")
-    print(f"  - Position messages ('{constants.GPS_POSITION_CHANNEL}'): {pos_parsed_count} parsed")
-    print(f"  - Orientation messages ('{constants.GPS_ORIENTATION_CHANNEL}'): {orient_parsed_count} parsed")
+    print(f"  - Position messages ('{config.GPS_POSITION_CHANNEL}'): {pos_parsed_count} parsed")
+    print(f"  - Orientation messages ('{config.GPS_ORIENTATION_CHANNEL}'): {orient_parsed_count} parsed")
 
     print("\n[3] RTK Fix Status Counts (for parsed position messages):")
     if not rtk_fix_status_counter:
@@ -169,7 +169,7 @@ def main():
                 print(f"  - Other (mode={mode}): {count} points")
 
     print("\n--- Final Result ---")
-    print(f"Ground truth creation complete! Wrote {total_gt_points} valid RTK points to {constants.OUTPUT_TUM_FILE}")
+    print(f"Ground truth creation complete! Wrote {total_gt_points} valid RTK points to {config.OUTPUT_TUM_FILE}")
 
 
 if __name__ == "__main__":

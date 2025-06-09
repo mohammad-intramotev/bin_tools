@@ -1,34 +1,39 @@
 from pyproj import CRS
 
 
-INPUT_FILES = "input_files/"
-INPUT_MERGE_BIN = f"{INPUT_FILES}/example.bin"
+INPUT_FILES = "input_files"
+# -- For bin_merge.py
+INPUT_MERGE_BIN = f"{INPUT_FILES}/example.bin" 
+# --- For bin_to_rosXbag
 INPUT_ROSBAG_BIN = f"{INPUT_FILES}/example.bin"
+# --- For bin_to_tum.py
 INPUT_TUM_BIN = f"{INPUT_FILES}/example.bin"
+# --- For traj_cmp.py
 INPUT_TRAJ_1 = f"{INPUT_FILES}/ground_truth.txt"
 INPUT_TRAJ_2 = f"{INPUT_FILES}/estimate.txt"
 
 OUTPUT_FILES = "output_files"
+# --- For bin_merge.py
 OUTPUT_MERGE_BIN = f"{OUTPUT_FILES}/combined_example.bin"
+# --- For bin_to_rosXbag
 OUTPUT_ROSBAGS = f"{OUTPUT_FILES}/ros_bags/"
+# --- For bin_to_tum.py
 OUTPUT_TUM_FILE = f"{OUTPUT_FILES}/ground_truth.txt"
+# --- For traj_cmp.py
 OUTPUT_TRAJ_FILES = f"{OUTPUT_FILES}/traj_files/"
 
+# --- For bin_to_rosXbag
 GRAVITY_ACCEL = 9.80665  # m/s^2
 MAX_ORIENTATION_AGE_MS = 200  # Max age of orientation data to use
 IMU_BUFFER_MAX_LEN = 100
-
 LIDAR_FRAME_ID = "lidar"
 IMU_FRAME_ID = "imu"
-
 LIDAR_TOPIC = "/livox/lidar"
 IMU_TOPIC = "/livox/imu"
 
+# --- For bin_to_tum.py
 GPS_ORIENTATION_CHANNEL = "duro_gps_orient_eule"
 GPS_POSITION_CHANNEL = "duro_gps_llh"
-
-# --- GPS Coordinate System ---
-IN_PROJ = CRS("EPSG:4326")
-OUT_PROJ = CRS("EPSG:32615")
-
+IN_PROJ = CRS("EPSG:4326")  # GPS Coordinate System
+OUT_PROJ = CRS("EPSG:32615") # GPS Coordinate System
 MAX_GPS_FUSION_AGE_MS = 75

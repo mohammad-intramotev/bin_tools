@@ -14,11 +14,11 @@ import rosbag
 from sensor_msgs.msg import Imu, PointCloud2, PointField
 from std_msgs.msg import Header
 
-from common import constants, livox_pb2, orientation_pb2, transformations as tf_transformations
+from common import config, livox_pb2, orientation_pb2, transformations as tf_transformations
 
 
 # Buffers for IMU data components
-duro_orientation_buffer = deque(maxlen=constants.IMU_BUFFER_MAX_LEN)
+duro_orientation_buffer = deque(maxlen=config.IMU_BUFFER_MAX_LEN)
 
 
 def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
@@ -116,9 +116,9 @@ def parse_livox_imu_data(raw_bytes, bin_envelope_timestamp_ms):
             'logger_timestamp_ms': bin_envelope_timestamp_ms,  # For age comparison
             'angular_velocity': [packet.gyro_x, packet.gyro_y, packet.gyro_z],
             'linear_acceleration': [
-                packet.acc_x * constants.GRAVITY_ACCEL,
-                packet.acc_y * constants.GRAVITY_ACCEL,
-                packet.acc_z * constants.GRAVITY_ACCEL
+                packet.acc_x * config.GRAVITY_ACCEL,
+                packet.acc_y * config.GRAVITY_ACCEL,
+                packet.acc_z * config.GRAVITY_ACCEL
             ]
         }
     except Exception as e:
@@ -205,16 +205,16 @@ def try_combine_imu_data_new(current_livox_imu_data, bag_writer):
     for d_data in reversed(duro_orientation_buffer):
         # Both timestamps in milliseconds
         if d_data['logger_timestamp_ms'] <= current_livox_imu_data['logger_timestamp_ms']:
-            if (current_livox_imu_data['logger_timestamp_ms'] - d_data['logger_timestamp_ms']) <= constants.MAX_ORIENTATION_AGE_MS:
+            if (current_livox_imu_data['logger_timestamp_ms'] - d_data['logger_timestamp_ms']) <= config.MAX_ORIENTATION_AGE_MS:
                 best_duro_data = d_data
                 break
             else:
                 break
 
     if best_duro_data:
-        imu_msg = create_combined_imu_msg(current_livox_imu_data, best_duro_data, constants.IMU_FRAME_ID)
+        imu_msg = create_combined_imu_msg(current_livox_imu_data, best_duro_data, config.IMU_FRAME_ID)
         if imu_msg:
-            bag_writer.write(constants.IMU_TOPIC, imu_msg)
+            bag_writer.write(config.IMU_TOPIC, imu_msg)
             return 1
     return 0
 
@@ -296,9 +296,9 @@ def create_ros1_bag(bin_file_path, output_bag_dir):
                 continue
 
             if channel_name == "avia_points":
-                ros_msg = create_pointcloud2_msg(parsed_data, constants.LIDAR_FRAME_ID)
+                ros_msg = create_pointcloud2_msg(parsed_data, config.LIDAR_FRAME_ID)
                 if ros_msg:
-                    bag_writer.write(constants.LIDAR_TOPIC, ros_msg)
+                    bag_writer.write(config.LIDAR_TOPIC, ros_msg)
                     message_count_total += 1
 
             elif channel_name == "duro_gps_orient_eule":
@@ -341,12 +341,8 @@ def process_bin_path(input_path, output_base_dir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python your_script_name.py <input_bin_file_or_dir> [output_base_directory]")
-        sys.exit(1)
+    if not os.path.exists(config.OUTPUT_ROSBAGS):
+        os.makedirs(config.OUTPUT_ROSBAGS)
 
-    if not os.path.exists(constants.OUTPUT_ROSBAGS):
-        os.makedirs(constants.OUTPUT_ROSBAGS)
-
-    process_bin_path(constants.INPUT_ROSBAG_BIN, constants.OUTPUT_ROSBAGS)
+    process_bin_path(config.INPUT_ROSBAG_BIN, config.OUTPUT_ROSBAGS)
     print("Conversion to ROS 1 bag complete.")

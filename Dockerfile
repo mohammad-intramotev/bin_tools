@@ -5,7 +5,7 @@ RUN apt-get update || true && \
     apt-get install -y python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir numpy protobuf evo pyproj
+RUN pip3 install --no-cache-dir "numpy<1.24" protobuf evo pyproj
 
 # If we're on ROS2 (humble), install tf-transformations
 RUN if [ "$ROS_DISTRO" = "humble" ]; then \

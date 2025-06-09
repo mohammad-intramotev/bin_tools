@@ -2,9 +2,9 @@
 
 import subprocess
 import os
-from common import constants
+from common import config
 
-output_dir = constants.OUTPUT_TRAJ_FILES
+output_dir = config.OUTPUT_TRAJ_FILES
 os.makedirs(output_dir, exist_ok=True)
 
 
@@ -13,9 +13,9 @@ print("--- [1/3] Running evo_traj to plot trajectories ---")
 subprocess.run([
     'evo_traj',
     'tum',
-    constants.INPUT_TRAJ_1,
-    constants.INPUT_TRAJ_2,
-    '--ref', constants.INPUT_TRAJ_1,
+    config.INPUT_TRAJ_1,
+    config.INPUT_TRAJ_2,
+    '--ref', config.INPUT_TRAJ_1,
     '-va',
     '--plot',
 ], check=True)
@@ -26,8 +26,8 @@ print("\n--- [2/3] Running evo_ape for Absolute Pose Error ---")
 subprocess.run([
     'evo_ape',
     'tum',
-    constants.INPUT_TRAJ_1,
-    constants.INPUT_TRAJ_2,
+    config.INPUT_TRAJ_1,
+    config.INPUT_TRAJ_2,
     '-va',
     '--plot',
     '--plot_mode', 'xyz',
@@ -40,8 +40,8 @@ print("\n--- [3/3] Running evo_rpe for Relative Pose Error ---")
 subprocess.run([
     'evo_rpe',
     'tum',
-    constants.INPUT_TRAJ_1,
-    constants.INPUT_TRAJ_2,
+    config.INPUT_TRAJ_1,
+    config.INPUT_TRAJ_2,
     '-va',
     '--plot',
     '--save_plot', os.path.join(output_dir, 'rpe_plot.png'),
