@@ -1,9 +1,6 @@
 services:
   btapp:
-    build:
-      context: .
-      args:
-        ROS_DISTRO: ${ROS_DISTRO:-humble}
+    build: .
     environment:
       - COMMAND=${COMMAND}
     container_name: bt_container

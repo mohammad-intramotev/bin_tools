@@ -13,18 +13,12 @@ def bin_merge_command():
         print(f"Failed to build distro.")
 
 def bin_to_rosbag_command():
-    distros = {"1":"noetic", "2":"humble"}
-    selection = input("\nPlease enter output format (1 for ROS 1 bag, 2 for ROS 2 bag): ")
-
-    while selection not in distros:
-        selection = input("Invalid input. Please enter output format (1 for ROS 1, 2 for ROS 2): ")
-
-    env = {**os.environ, "ROS_DISTRO": distros[selection], "COMMAND": "bin_to_ros"}
+    env = {**os.environ, "COMMAND": "bin_to_ros"}
  
     try:
         subprocess.run(["docker", "compose", "up", "--build"], env=env, check=True)
     except subprocess.CalledProcessError:
-        print(f"Failed to build distro: {distros[selection]}")
+        print(f"Failed to build distro")
 
 def bin_to_tum_command():
     env = {**os.environ, "COMMAND": "bin_to_tum"}
