@@ -51,11 +51,12 @@ def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
                 point_time_offset_sec = point.timestamp_offset_us / 1_000_000.0
                 points_data_for_ros.append([x, y, z, intensity, point_time_offset_sec])
         
-        if not hasattr(packet, 'system_timestamp_us'):
-             print("ERROR: Livox Point_Packet missing 'system_timestamp_us'. Cannot get accurate time.", file=sys.stderr)
+        if not hasattr(packet, 'timestamp_us'):
+             print("ERROR: Livox Point_Packet missing 'timestamp_us'. Cannot get accurate time.", file=sys.stderr)
              return None
         
-        header_time_us = packet.system_timestamp_us
+        header_time_us = packet.timestamp_us
+
         header_time_sec = header_time_us / 1_000_000.0
 
         sec_hdr = int(header_time_sec)
@@ -107,11 +108,12 @@ def parse_livox_imu_data(raw_bytes, bin_envelope_timestamp_ms):
         packet = livox_pb2.Imu_Data()
         packet.ParseFromString(raw_bytes)
 
-        if not hasattr(packet, 'system_timestamp_us'):
-            print("ERROR: Livox Imu_Data missing 'system_timestamp_us'. Cannot get accurate time.", file=sys.stderr)
+        if not hasattr(packet, 'timestamp_us'):
+            print("ERROR: Livox Imu_Data missing 'timestamp_us'. Cannot get accurate time.", file=sys.stderr)
             return None
 
-        header_time_us = packet.system_timestamp_us
+        header_time_us = packet.timestamp_us
+
         header_time_sec = header_time_us / 1_000_000.0
 
         header_sec = int(header_time_sec)
@@ -158,7 +160,6 @@ CHANNEL_PARSERS = {
     "avia_imu": parse_livox_imu_data,
 }
 
-# create_ros1_bag function with advanced diagnostics
 def create_ros1_bag(bin_file_path, output_bag_path):
     if os.path.exists(output_bag_path):
         print(f"{output_bag_path} already exists. Removing it.")
@@ -172,7 +173,6 @@ def create_ros1_bag(bin_file_path, output_bag_path):
     channel_counts = Counter()
 
     last_imu_time_sec = None
-    last_lidar_end_time_sec = None
     imu_time_gap_threshold_sec = 0.02
     lidar_scan_count = 0
     RED = '\033[91m'
@@ -181,7 +181,7 @@ def create_ros1_bag(bin_file_path, output_bag_path):
     RESET = '\033[0m'
 
     print(f"Processing .bin file: {bin_file_path} into {output_bag_path}")
-    print("--- Starting Advanced Diagnostics ---")
+    print("--- Starting Advanced Diagnostics (using timestamp_us field) ---")
 
     with open(bin_file_path, 'rb') as log_file:
         while True:
@@ -232,8 +232,6 @@ def create_ros1_bag(bin_file_path, output_bag_path):
                     scan_duration_ms = (scan_end_time_sec - scan_start_time_sec) * 1000
                 else:
                     scan_start_time_sec, scan_end_time_sec, scan_duration_ms = header_time_sec, header_time_sec, 0
-
-                last_lidar_end_time_sec = scan_end_time_sec
                 
                 print(f"\nDIAGNOSTIC [LiDAR Scan #{lidar_scan_count}]:")
                 print(f"  - Scan Time Range:  {scan_start_time_sec:.6f} -> {scan_end_time_sec:.6f} (Duration: {scan_duration_ms:.2f} ms)")
