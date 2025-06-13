@@ -23,7 +23,7 @@ python3 launch.py
 You will be prompted to select a tool:
 
 1. **Merge** multiple .bin files
-2. **Convert** .bin to ROS bag (ROS1/ROS2)
+2. **Convert** .bin to ROS1 bag
 3. **Export** ground-truth to TUM from .bin
 4. **Compare** trajectories
 
@@ -39,9 +39,9 @@ sudo rm -rf output_files/*
 
 Combines several `.bin` files into a single output file. This is useful when logs are split across multiple files from the same data collection session.
 
-### `bin_to_ros1bag.py` / `bin_to_ros2bag.py` — Convert `.bin` to ROS Bag
+### `bin_to_ros1bag.py` — Convert `.bin` to ROS1 Bag
 
-Translates `.bin` files into ROS1 or ROS2 bag files.
+Translates `.bin` files into ROS1 bag files.
 
 ### `bin_to_tum.py` — Export to TUM Format
 
