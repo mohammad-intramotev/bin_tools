@@ -13,7 +13,6 @@ from sensor_msgs.msg import Imu
 
 from common import config, livox_pb2
 
-
 def parse_livox_point_packet(raw_bytes, bin_envelope_timestamp_ms):
     """
     Parses a Livox Point_Packet protobuf and also tracks unique line and tag values.
