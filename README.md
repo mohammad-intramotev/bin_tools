@@ -37,21 +37,16 @@ sudo rm -rf output_files/*
 ## Tools Overview
 
 ### `combine_bin.py` — Merge Multiple `.bin` Files
-
 Combines several `.bin` logs into a single output file. This is useful when logs are split across multiple files from the same data collection session.
 
 ### `bin_to_ros1bag.py` — Convert `.bin` to ROS1 Bag
-
-Translates `.bin` files into ROS1 bag files.
+Converts `.bin` files into ROS1 bags containing LiDAR (avia_points) and IMU (avia_imu) data.
 
 ### `bin_to_tum.py` — Export to TUM Format
-
 Extracts GPS-based ground-truth data from `.bin` logs and converts it to the widely-used [TUM trajectory format](https://vision.in.tum.de/data/datasets/rgbd-dataset) for use with EVO, and evaluation tool.
 
 ### `traj_cmp.py` — Compare Trajectories
-
 Takes two trajectory files (e.g., estimated vs ground truth) and computes error metrics such as RMSE, ATE, and relative pose error.
 
 ### `bin_diagnose.py` — Diagnose .bin logs
-
 Parses `.bin` logs and reports capture rate, total LiDAR points, and recording duration to detect data loss.
