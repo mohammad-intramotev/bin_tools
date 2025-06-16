@@ -110,8 +110,11 @@ def create_livox_custom_msg(parsed_data, frame_id):
 
     for point_raw in points_data:
         p = CustomPoint()
-        x, y, z, intensity, time_offset_sec, tag, line = point_raw
-        p.x, p.y, p.z = x, y, z
+        x_raw, y_raw, z_raw, intensity, time_offset_sec, tag, line = point_raw
+        p.x =  x_raw
+        p.y = -y_raw
+        p.z = -z_raw
+        
         p.reflectivity = int(intensity)
         p.offset_time = int(time_offset_sec * 1_000_000_000)
         p.tag, p.line = tag, line
@@ -165,17 +168,17 @@ def create_livox_only_imu_msg(livox_data, frame_id):
     msg = Imu()
     msg.header.stamp = rospy.Time(livox_data['header_sec'], livox_data['header_nanosec'])
     msg.header.frame_id = frame_id
-    
-    # Transformation from IMU frame (FLU) to LiDAR frame (FRD)
-    raw_angular_vel = livox_data['angular_velocity']
-    msg.angular_velocity.x =  raw_angular_vel[0]
-    msg.angular_velocity.y = -raw_angular_vel[1]
-    msg.angular_velocity.z = -raw_angular_vel[2]
 
-    raw_linear_accel = livox_data['linear_acceleration']
-    msg.linear_acceleration.x =  raw_linear_accel[0]
-    msg.linear_acceleration.y = -raw_linear_accel[1]
-    msg.linear_acceleration.z = -raw_linear_accel[2]
+    raw_angular_velocity = livox_data['angular_velocity']
+    raw_linear_acceleration = livox_data['linear_acceleration']
+    
+    msg.angular_velocity.x =  raw_angular_velocity[0]
+    msg.angular_velocity.y = -raw_angular_velocity[1]
+    msg.angular_velocity.z = -raw_angular_velocity[2]
+    
+    msg.linear_acceleration.x =  raw_linear_acceleration[0]
+    msg.linear_acceleration.y = -raw_linear_acceleration[1]
+    msg.linear_acceleration.z = -raw_linear_acceleration[2]
 
     msg.orientation.w = 1.0
     msg.orientation_covariance[0] = -1.0
