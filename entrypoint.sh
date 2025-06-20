@@ -8,7 +8,6 @@ SDK_WS="${BUILD_WS}/Livox-SDK"
 LIVOX_WS="${BUILD_WS}/livox_ws"
 
 if [ "$COMMAND" = "bin_merge" ]; then
-    echo "Converting .bin to ROS bag"
     python3 bin_merge.py
 
 elif [ "$COMMAND" = "bin_to_ros" ]; then

@@ -9,6 +9,8 @@ INPUT_ROSBAG_BIN = f"{INPUT_FILES}/ros_bins/"
 INPUT_TUM_BIN = f"{INPUT_FILES}/log_0850-0999.bin"
 # --- For bin_to_tum.py, traj_cmp.py
 INPUT_TRAJ_2 = f"{INPUT_FILES}/CBD_Building_01.txt" # Estimated trajectory
+# --- For bin_diagnose
+INPUT_BIN = f"{INPUT_FILES}/bins/"
 
 # --- For bin_merge.py
 OUTPUT_MERGE_DIR = f"{OUTPUT_FILES}/combined_bins/"

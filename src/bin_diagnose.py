@@ -103,7 +103,7 @@ def analyze_bin_file(bin_file_path):
     print("="*67 + "\n")
 
 if __name__ == "__main__":
-    input_directory = config.INPUT_ROSBAG_BIN
+    input_directory = config.INPUT_BIN
     bin_files = sorted(glob.glob(os.path.join(input_directory, '*.bin')))
     
     if not bin_files:

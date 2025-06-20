@@ -48,5 +48,5 @@ Extracts GPS-based ground-truth data from `.bin` logs and converts it to the wid
 ### `traj_cmp.py` — Compare Trajectories
 Takes two trajectory files (e.g., estimated vs ground truth) and computes error metrics such as RMSE, ATE, and relative pose error.
 
-### `bin_diagnose.py` — Diagnose .bin logs
+### `bin_diagnose.py` — Diagnose .bin Logs
 Parses `.bin` logs and reports capture rate, total LiDAR points, and recording duration to detect data loss.
