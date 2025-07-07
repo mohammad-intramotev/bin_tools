@@ -7,6 +7,7 @@ from collections import defaultdict
 from common import livox_pb2, config
 
 def human_readable_size(num_bytes):
+    """Converts bytes to a human-readable format."""
     if num_bytes is None:
         return "N/A"
     for unit in ['B','KB','MB','GB','TB']:
@@ -54,7 +55,7 @@ def validate_point_frame(stats, packet):
         stats['warnings'].append(
             f"Invalid reflectivity value found: {packet.reflectivity[0]}"
         )
-    
+
     if hasattr(packet, 'raw_packet_count') and packet.raw_packet_count > 0:
         stats['total_raw_packets'] += packet.raw_packet_count
 
@@ -66,7 +67,7 @@ def validate_imu_message(stats, msg):
     if stats['last_ts']['avia_imu'] > 0:
         delta_us = msg.timestamp_us - stats['last_ts']['avia_imu']
         stats['imu_delta_t_ms'].append(delta_us / 1000.0)
-    
+
     if msg.timestamp_us <= stats['last_ts']['avia_imu']:
         stats['warnings'].append(
             f"Non-monotonic IMU hardware timestamp detected at {msg.timestamp_us}"
@@ -156,11 +157,31 @@ def analyze_bin_file(bin_file_path):
         rate = (count / duration_s) if duration_s > 0 else 0
         print(f" - {name:<25}: {count:>8} msgs, {rate:>6.2f} Hz")
 
-    print("\n--- LiDAR Point Cloud Analysis (Aggregated Frames) ---")
-    print(f" - Frames Published: {stats['total_lidar_frames']:,}")
-    print(f" - Total Points Captured: {stats['total_lidar_points']:,}")
-    print(f" - Frame Refresh Rate: {stats['total_lidar_frames'] / duration_s if duration_s > 0 else 0:,.2f} Hz")
-    print(f" - Actual Point Rate: {stats['total_lidar_points'] / duration_s if duration_s > 0 else 0:,.1f} pts/sec")
+    print("\n--- Data Loss & Integrity Analysis ---")
+    if duration_s > 0:
+        expected_points = config.LIVOX_AVIA_POINT_RATE * duration_s
+        actual_points = stats['total_lidar_points']
+        dropped_points = max(0, int(expected_points - actual_points))
+        
+        percentage_dropped = (dropped_points / expected_points) * 100 if expected_points > 0 else 0
+
+        color_code = "\033[92m"  # Green
+        if percentage_dropped > 5.0:
+            color_code = "\033[91m"  # Red
+        elif percentage_dropped > 1.0:
+            color_code = "\033[93m"  # Yellow
+
+        print(f" - Expected Point Rate:      {config.LIVOX_AVIA_POINT_RATE:,} pts/sec")
+        print(f" - Expected Points in Total: {int(expected_points):,}")
+        print(f" - Actual Points Captured:   {actual_points:,}")
+        print(f" - Estimated Dropped Points: {dropped_points:,}")
+        print(f" - Percentage Dropped:       {color_code}{percentage_dropped:.2f}%\033[0m")
+        print("-" * 40)
+        print(f" - Actual Avg Point Rate:    {stats['total_lidar_points'] / duration_s:,.1f} pts/sec")
+        print(f" - Frame Refresh Rate:       {stats['total_lidar_frames'] / duration_s:,.2f} Hz")
+    else:
+        print(" - Not enough data for loss analysis.")
+
 
     print("\n--- Frame Duration Analysis ---")
     if stats['frame_durations_ms']:
@@ -204,7 +225,7 @@ def analyze_bin_file(bin_file_path):
         for warn in stats['warnings']:
             print(f" - \033[93mWARNING:\033[0m {warn}")
     else:
-        print(f"\032[92mData integrity checks passed. File appears to be healthy.\033[0m")
+        print(f"\033[92mData integrity checks passed. File appears to be healthy.\033[0m")
 
     print("="*67 + "\n")
 

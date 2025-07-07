@@ -38,6 +38,6 @@ IMU_ACCEL_GYRO_CHANNEL_NAME = "parse_livox_imu_data"
 IMU_ORIENTATION_CHANNEL_NAME = "parse_duro_orient_euler"
 
 # --- For bin_diagnose.py
-LIVOX_AVIA_POINTS_PER_SECOND = 240000  # Avia spec: 240k pts/sec (single return mode)
+LIVOX_AVIA_POINT_RATE = 240000  # Avia spec: 240k pts/sec (single return mode)
 LIVOX_AVIA_FRAME_TIME_MS = 200
 LIVOX_AVIA_IMU_RATE_HZ = 200
