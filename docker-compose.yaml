@@ -1,8 +1,14 @@
 services:
   btapp:
-    build: .
+    build:
+      context: .
+      args:
+        ROS_DISTRO: ${ROS_DISTRO}
+        ROS_VER: ${ROS_VER}
     environment:
       - COMMAND=${COMMAND}
+      - ROS_DISTRO=${ROS_DISTRO}
+      - ROS_VER=${ROS_VER} 
     container_name: bt_container
     volumes:
       - ./input_files:/root/bin_tools/build/input_files

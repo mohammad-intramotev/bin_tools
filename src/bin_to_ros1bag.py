@@ -3,14 +3,14 @@
 import glob
 import os
 import struct
+import shutil
 
 import rospy
 import rosbag
 from sensor_msgs.msg import Imu
 
+from livox_custom_msgs_ros1.msg import CustomMsg, CustomPoint
 from common import config, livox_pb2
-from livox_ros_driver.msg import CustomMsg, CustomPoint
-
 
 TOPICS = {
     'avia_points': ('lidar', livox_pb2.Point_Packet),
@@ -36,7 +36,7 @@ def process_file(file_obj, bag: rosbag.Bag) -> None:
         if len(header) < 9:
             break
 
-        ts_us, ch_len = struct.unpack('>QB', header)
+        _, ch_len = struct.unpack('>QB', header)
         channel = file_obj.read(ch_len).decode()
 
         length_bytes = file_obj.read(4)
@@ -114,12 +114,16 @@ def write_imu_msg(proto_msg, bag: rosbag.Bag, stamp: rospy.Time) -> None:
 
 
 def main():
-    os.makedirs(config.OUTPUT_ROSBAGS, exist_ok=True)
+    os.makedirs(config.OUTPUT_ROS1BAGS, exist_ok=True)
     pattern = os.path.join(config.INPUT_ROSBAG_BIN, '*.bin')
 
     for bin_path in sorted(glob.glob(pattern)):
         bag_name = os.path.basename(bin_path).replace('.bin', '.bag')
-        out_path = os.path.join(config.OUTPUT_ROSBAGS, bag_name)
+        out_path = os.path.join(config.OUTPUT_ROS1BAGS, bag_name)
+
+        if os.path.exists(out_path):
+            print(f"Overwriting existing bag: {out_path}")
+            shutil.rmtree(out_path)
 
         with open(bin_path, 'rb') as f, rosbag.Bag(out_path, 'w') as bag:
             process_file(f, bag)

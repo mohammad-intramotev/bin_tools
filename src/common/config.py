@@ -15,7 +15,9 @@ INPUT_BIN = f"{INPUT_FILES}/bins/"
 # --- For bin_merge.py
 OUTPUT_MERGE_DIR = f"{OUTPUT_FILES}/combined_bins/"
 # --- For bin_to_ros1bag
-OUTPUT_ROSBAGS = f"{OUTPUT_FILES}/ros_bags/"
+OUTPUT_ROS1BAGS = f"{OUTPUT_FILES}/ros1_bags/"
+# --- For bin_to_ros1bag
+OUTPUT_ROS2BAGS = f"{OUTPUT_FILES}/ros2_bags/"
 # --- For bin_to_tum.py
 OUTPUT_TUM_FILE = f"{OUTPUT_FILES}/ground_truth.txt"
 # --- For traj_cmp.py

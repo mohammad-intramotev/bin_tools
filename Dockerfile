@@ -1,39 +1,50 @@
-# Use ROS Noetic as the base image
-FROM ros:noetic-ros-core
+ARG ROS_DISTRO
+FROM ros:${ROS_DISTRO}-ros-core
 
-# Set the environment to non-interactive to prevent prompts during build
+ARG ROS_DISTRO
+ARG ROS_VER
+RUN echo "---> Building for ROS Distro: $ROS_DISTRO"
+RUN echo "---> ROS Workspace is set to: $ROS_VER"
+
+# Set the environment to non-interactive
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies.
-# Explicitly remove the system's python3-protobuf to avoid conflicts with the pip version.
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        git \
         cmake \
         build-essential \
-        python3-pip \
-        ros-noetic-pcl-ros \
-    && apt-get remove -y python3-protobuf && \
-    rm -rf /var/lib/apt/lists/*
+        python3-pip && \
+    if [ "$ROS_DISTRO" = "humble" ]; then \
+        apt-get install -y --no-install-recommends \
+            ros-humble-ros2bag \
+            ros-humble-rosbag2-py \
+            ros-humble-sensor-msgs \
+            ros-humble-rosbag2-storage-default-plugins \
+            python3-colcon-common-extensions; \
+    fi \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python packages using pip
-RUN pip3 install --no-cache-dir \
-    "numpy<1.24" \
-    "protobuf<=3.20.3" \
-    pymap3d \
-    evo
+# Install Python packages
+RUN pip3 install --no-cache-dir numpy protobuf pymap3d
 
-# Set working directory for subsequent commands
+# Create the ROS workspace structure
+WORKDIR /root/bin_tools/build/${ROS_VER}_ws/src
+
+# Copy the custom ROS 1 message package
+COPY livox_custom_msgs_${ROS_VER}/ /root/bin_tools/build/${ROS_VER}_ws/src/livox_custom_msgs_${ROS_VER}/
+
+# Set main working directory
 WORKDIR /root/bin_tools/build
 
-# Copy your application source code into the container
+# Copy your application source code
 COPY src/ .
 
 # Copy and set permissions for the entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Set the entrypoint to run when the container starts
+# Set the entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
 
 # Optional command for development to keep the container running
