@@ -128,7 +128,7 @@ def main():
         with open(bin_path, 'rb') as f, rosbag.Bag(out_path, 'w') as bag:
             process_file(f, bag)
 
-    print("Conversion to ROS 1 bag complete.")
+    print("Conversion to ROS 1 bag with custom messages complete.")
 
 if __name__ == '__main__':
     main()

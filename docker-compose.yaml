@@ -5,6 +5,7 @@ services:
       args:
         ROS_DISTRO: ${ROS_DISTRO}
         ROS_VER: ${ROS_VER}
+        COMMAND: ${COMMAND}
     environment:
       - COMMAND=${COMMAND}
       - ROS_DISTRO=${ROS_DISTRO}

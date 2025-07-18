@@ -1,38 +1,44 @@
 #!/bin/bash
+
 set -e
 
 source /opt/ros/${ROS_DISTRO}/setup.bash
 
-if [ "$COMMAND" = "bin_merge" ]; then
-    python3 bin_merge.py
+case "$COMMAND" in
+    1)
+        python3 bin_merge.py
+        ;;
+    2|3|4)
+        BUILD_WS="$(pwd)"
+        ROS_WS="${BUILD_WS}/${ROS_VER}_ws"
 
-elif [ "$COMMAND" = "bin_to_ros" ]; then
-    BUILD_WS="$(pwd)"
-    ROS_WS="${BUILD_WS}/${ROS_VER}_ws"
+        cd "${ROS_WS}"
 
-    cd "${ROS_WS}"
-
-    if [ "$ROS_DISTRO" = "noetic" ]; then
-        catkin_make
-        source "${ROS_WS}/devel/setup.bash"
+        if [ "$ROS_DISTRO" = "noetic" ]; then
+            catkin_make
+            source "${ROS_WS}/devel/setup.bash"
+        else
+            colcon build
+            source "${ROS_WS}/install/setup.bash"
+        fi
         cd "${BUILD_WS}"
-        python3 bin_to_ros1bag.py
-    else
-        colcon build
-        source "${ROS_WS}/install/setup.bash"
-        cd "${BUILD_WS}"
-        python3 bin_to_ros2bag.py
-    fi
 
-elif [ "$COMMAND" = "bin_to_tum" ]; then
-    python3 bin_to_tum.py
-
-elif [ "$COMMAND" = "traj_cmp" ]; then
-    python3 traj_cmp.py
-
-elif [ "$COMMAND" = "bin_diag" ]; then
-    python3 bin_diagnose.py
-
-else
-    echo "Unknown command: $COMMAND"
-fi
+        case "$COMMAND" in
+            2) python3 bin_to_ros1bagC.py ;;
+            3) python3 bin_to_ros2bagC.py ;;
+            4) python3 bin_to_ros2bagS.py ;;
+        esac
+        ;;
+    5)
+        python3 bin_to_tum.py
+        ;;
+    6)
+        python3 traj_cmp.py
+        ;;
+    7)
+        python3 bin_diagnose.py
+        ;;
+    *)
+        echo "Unknown command: $COMMAND"
+        ;;
+esac

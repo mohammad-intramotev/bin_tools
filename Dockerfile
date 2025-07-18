@@ -3,6 +3,7 @@ FROM ros:${ROS_DISTRO}-ros-core
 
 ARG ROS_DISTRO
 ARG ROS_VER
+ARG COMMAND
 RUN echo "---> Building for ROS Distro: $ROS_DISTRO"
 RUN echo "---> ROS Workspace is set to: $ROS_VER"
 
@@ -28,11 +29,18 @@ RUN apt-get update && \
 # Install Python packages
 RUN pip3 install --no-cache-dir numpy protobuf pymap3d
 
+# Copy the custom package to a temporary location first
+COPY livox_custom_msgs_${ROS_VER}/ /tmp/livox_custom_msgs/
+
 # Create the ROS workspace structure
 WORKDIR /root/bin_tools/build/${ROS_VER}_ws/src
 
-# Copy the custom ROS 1 message package
-COPY livox_custom_msgs_${ROS_VER}/ /root/bin_tools/build/${ROS_VER}_ws/src/livox_custom_msgs_${ROS_VER}/
+# Conditionally move the package into it
+RUN case "$COMMAND" in \
+        2|3) \
+            mv /tmp/livox_custom_msgs ./livox_custom_msgs_${ROS_VER}/ ;; \
+    esac \
+    && rm -rf /tmp/livox_custom_msgs
 
 # Set main working directory
 WORKDIR /root/bin_tools/build

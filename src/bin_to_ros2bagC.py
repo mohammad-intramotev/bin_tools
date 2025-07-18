@@ -149,7 +149,7 @@ def main():
         with open(bin_path, 'rb') as f:
             process_file(f, writer)
 
-    print("\nConversion to ROS 2 bag complete.")
+    print("\nConversion to ROS 2 bag complete with custom messages complete.")
 
 
 if __name__ == '__main__':

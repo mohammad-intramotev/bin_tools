@@ -3,20 +3,20 @@ OUTPUT_FILES = "output_files"
 
 # -- For bin_merge.py
 INPUT_MERGE_DIR = f"{INPUT_FILES}/merge_bins/"
-# --- For bin_to_ros1bag
+# --- For bin_to_ros<x>bag<x>
 INPUT_ROSBAG_BIN = f"{INPUT_FILES}/ros_bins/"
 # --- For bin_to_tum.py
-INPUT_TUM_BIN = f"{INPUT_FILES}/log_0850-0999.bin"
+INPUT_TUM_BIN = f"{INPUT_FILES}/tum_bin/"
 # --- For bin_to_tum.py, traj_cmp.py
-INPUT_TRAJ_2 = f"{INPUT_FILES}/CBD_Building_01.txt" # Estimated trajectory
+INPUT_TRAJ_2 = f"{INPUT_FILES}/estimated.txt" # Estimated trajectory
 # --- For bin_diagnose
 INPUT_BIN = f"{INPUT_FILES}/bins/"
 
 # --- For bin_merge.py
 OUTPUT_MERGE_DIR = f"{OUTPUT_FILES}/combined_bins/"
-# --- For bin_to_ros1bag
+# --- For bin_to_ros1bag<x>
 OUTPUT_ROS1BAGS = f"{OUTPUT_FILES}/ros1_bags/"
-# --- For bin_to_ros1bag
+# --- For bin_to_ros12bag<x>
 OUTPUT_ROS2BAGS = f"{OUTPUT_FILES}/ros2_bags/"
 # --- For bin_to_tum.py
 OUTPUT_TUM_FILE = f"{OUTPUT_FILES}/ground_truth.txt"
