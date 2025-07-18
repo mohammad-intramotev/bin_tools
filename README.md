@@ -24,9 +24,10 @@ You will be prompted to select a tool:
 
 1. **Merge** multiple .bin files
 2. **Convert** .bin to ROS1 bag
-3. **Export** ground-truth to TUM from .bin
-4. **Compare** trajectories
-5. **Diagnose** .bin file
+3. **Convert** .bin to ROS2 bag
+4. **Export** ground-truth to TUM from .bin
+5. **Compare** trajectories
+6. **Diagnose** .bin file
 
 Clean up with:  
 
@@ -41,6 +42,9 @@ Combines several `.bin` logs into a single output file. This is useful when logs
 
 ### `bin_to_ros1bag.py` — Convert `.bin` to ROS1 Bag
 Converts `.bin` files into ROS1 bags containing LiDAR and IMU data.
+
+### `bin_to_ros2bag.py` — Convert `.bin` to ROS2 Bag
+Converts `.bin` files into ROS2 bags containing LiDAR and IMU data.
 
 ### `bin_to_tum.py` — Export to TUM Format
 Extracts GPS-based ground-truth data from `.bin` logs and converts it to the widely-used [TUM trajectory format](https://vision.in.tum.de/data/datasets/rgbd-dataset) for use with EVO, and evaluation tool.
