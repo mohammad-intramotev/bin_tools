@@ -1,5 +1,7 @@
 # Save this as sync_and_parse.py
+import os
 import sys
+import glob
 import struct
 import numpy as np
 import pymap3d as pm
@@ -104,4 +106,7 @@ def process_log_file(input_bin_file, reference_tum_file, output_tum_file):
     print(f"\nDone. Synchronized ground truth saved to: {output_tum_file}")
 
 if __name__ == '__main__':
-    process_log_file(config.INPUT_TUM_BIN, config.INPUT_TRAJ_2, config.OUTPUT_TUM_FILE)
+    bin_files = glob.glob(os.path.join(config.INPUT_TUM_DIR, "*.bin"))
+    input_bin_file = bin_files[0]
+    print(f"Found binary file: {input_bin_file}")
+    process_log_file(input_bin_file, config.INPUT_TRAJ_2, config.OUTPUT_TUM_DIR)

@@ -27,7 +27,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
-RUN pip3 install --no-cache-dir numpy protobuf pymap3d
+RUN pip3 install --no-cache-dir numpy==1.24.4 protobuf pymap3d scipy evo
 
 # Copy the custom package to a temporary location first
 COPY livox_custom_msgs_${ROS_VER}/ /tmp/livox_custom_msgs/

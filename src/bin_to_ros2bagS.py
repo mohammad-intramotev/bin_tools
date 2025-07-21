@@ -2,6 +2,7 @@
 
 import glob
 import os
+import math
 import struct
 import shutil
 
@@ -23,9 +24,21 @@ def process_file(file_obj, writer: SequentialWriter) -> None:
     Read binary frames from file_obj, parse protobuf messages,
     and write corresponding ROS 2 messages into the bag.
     """
+    file_obj.seek(0, os.SEEK_END)
+    total_size = file_obj.tell()
+    file_obj.seek(0)
+    print(f"DEBUG: Starting to process file. Total size: {total_size / 1e9:.2f} GB")
+
+    first_stamp_ns = None
+    last_stamp_ns = 0
+
+    message_count = 0
     while True:
+        current_pos = file_obj.tell()
         header = file_obj.read(9)
         if len(header) < 9:
+            print(f"DEBUG: Breaking loop. Header read was {len(header)} bytes.")
+            print(f"DEBUG: Stopped at position {current_pos} out of {total_size} bytes.")
             break
 
         _, ch_len = struct.unpack('>QB', header)
@@ -44,18 +57,33 @@ def process_file(file_obj, writer: SequentialWriter) -> None:
         proto_msg = ProtoClass()
         try:
             proto_msg.ParseFromString(payload)
-        except Exception:
-            continue
+        except Exception as e:
+            print(f"INFO: Failed to parse protobuf message. Error: {e}")
+            break 
 
         if not hasattr(proto_msg, 'timestamp_us'):
+            print(f"INFO: Skipping message in '{channel}' because it has no 'timestamp_us' field.") # <-- ADD THIS
             continue
 
         stamp_ns = proto_msg.timestamp_us * 1000
+
+        if first_stamp_ns is None:
+            first_stamp_ns = stamp_ns
+        
+        last_stamp_ns = stamp_ns
+
         if topic_type == 'lidar':
             write_lidar_msg_pointcloud2(proto_msg, writer, stamp_ns)
         else:
             write_imu_msg(proto_msg, writer, stamp_ns)
 
+        message_count += 1
+
+    if first_stamp_ns is not None:
+        duration_s = (last_stamp_ns - first_stamp_ns) / 1_000_000_000
+        print(f"INFO: First timestamp: {first_stamp_ns}")
+        print(f"INFO: Last timestamp:  {last_stamp_ns}")
+        print(f"DATA DURATION: {duration_s:.2f} seconds")
 
 def write_lidar_msg_pointcloud2(proto_msg, writer: SequentialWriter, stamp_ns: int) -> None:
     """
@@ -112,14 +140,13 @@ def write_imu_msg(proto_msg, writer: SequentialWriter, stamp_ns: int) -> None:
         header=Header(stamp=Time(sec=secs, nanosec=nanosecs), frame_id=config.IMU_FRAME_ID)
     )
 
-    imu_msg.angular_velocity.x = proto_msg.gyro_x
-    imu_msg.angular_velocity.y = proto_msg.gyro_y
-    imu_msg.angular_velocity.z = proto_msg.gyro_z
+    imu_msg.linear_acceleration.x = proto_msg.acc_x
+    imu_msg.linear_acceleration.y = proto_msg.acc_y
+    imu_msg.linear_acceleration.z = proto_msg.acc_z
 
-    g = config.GRAVITY_ACCEL
-    imu_msg.linear_acceleration.x = proto_msg.acc_x * g
-    imu_msg.linear_acceleration.y = proto_msg.acc_y * g
-    imu_msg.linear_acceleration.z = proto_msg.acc_z * g
+    imu_msg.angular_velocity.x = math.radians(proto_msg.gyro_x)
+    imu_msg.angular_velocity.y = math.radians(proto_msg.gyro_y)
+    imu_msg.angular_velocity.z = math.radians(proto_msg.gyro_z)
 
     serialized_msg = serialize_message(imu_msg)
     writer.write(config.IMU_TOPIC, serialized_msg, stamp_ns)

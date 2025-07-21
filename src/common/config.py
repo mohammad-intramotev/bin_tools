@@ -6,9 +6,11 @@ INPUT_MERGE_DIR = f"{INPUT_FILES}/merge_bins/"
 # --- For bin_to_ros<x>bag<x>
 INPUT_ROSBAG_BIN = f"{INPUT_FILES}/ros_bins/"
 # --- For bin_to_tum.py
-INPUT_TUM_BIN = f"{INPUT_FILES}/tum_bin/"
+INPUT_TUM_DIR = f"{INPUT_FILES}/tum_bins/"
+# --- For traj_cmp.py
+INPUT_TRAJ_1 = f"{INPUT_FILES}/tum_cmp/ground_truth.txt" # Ground truth trajectory
 # --- For bin_to_tum.py, traj_cmp.py
-INPUT_TRAJ_2 = f"{INPUT_FILES}/estimated.txt" # Estimated trajectory
+INPUT_TRAJ_2 = f"{INPUT_FILES}/tum_cmp/traj_imu.txt" # Estimated trajectory
 # --- For bin_diagnose
 INPUT_BIN = f"{INPUT_FILES}/bins/"
 
@@ -19,9 +21,8 @@ OUTPUT_ROS1BAGS = f"{OUTPUT_FILES}/ros1_bags/"
 # --- For bin_to_ros12bag<x>
 OUTPUT_ROS2BAGS = f"{OUTPUT_FILES}/ros2_bags/"
 # --- For bin_to_tum.py
-OUTPUT_TUM_FILE = f"{OUTPUT_FILES}/ground_truth.txt"
+OUTPUT_TUM_DIR= f"{OUTPUT_FILES}/tum_files/ground_truth.txt"
 # --- For traj_cmp.py
-INPUT_TRAJ_1 = f"{OUTPUT_FILES}/ground_truth.txt" # Ground truth trajectory
 OUTPUT_TRAJ_FILES = f"{OUTPUT_FILES}/traj_files/"
 
 # --- For bin_to_ros1bag.py

@@ -1,4 +1,8 @@
 output_files/
-input_files/*
+input_files/bins/*
+input_files/merge_bins/*
+input_files/ros_bins/*
+input_files/tum_bins/*
+input_files/tum_cmp/*
 !.gitkeep
 __pycache__

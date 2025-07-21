@@ -8,10 +8,10 @@ if __name__ == "__main__":
     command = input("""
         Welcome to bin_tools. Please select a tool:\n
         1) Combine multiple .bin files
-        2) Convert .bin to ROS1 bag with custom messages
-        3) Convert .bin to ROS2 bag with custom messages
-        4) Convert .bin to ROS2 bag with standard messages
-        5) Create ground truth using GPS from .bin and convert to TUM format
+        2) Convert .bin to ROS 1 bag with custom messages
+        3) Convert .bin to ROS 2 bag with custom messages
+        4) Convert .bin to ROS 2 bag with standard messages
+        5) Create ground truth using GPS data from .bin and convert to TUM format
         6) Compare trajectories
         7) Diagnose .bin file\n
         """)
