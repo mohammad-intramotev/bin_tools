@@ -23,11 +23,12 @@ python3 launch.py
 You will be prompted to select a tool:
 
 1. **Merge** multiple .bin files
-2. **Convert** .bin to ROS1 bag
-3. **Convert** .bin to ROS2 bag
-4. **Export** ground-truth to TUM from .bin
-5. **Compare** trajectories
-6. **Diagnose** .bin file
+2. **Convert** .bin to ROS 1 bag with custom messages
+3. **Convert** .bin to ROS 2 bag with custom messages
+4. **Convert** .bin to ROS 2 bag with standard messages
+5. **Export** ground-truth to TUM from .bin
+6. **Compare** trajectories
+7. **Diagnose** .bin file
 
 Clean up with:  
 
@@ -40,11 +41,14 @@ sudo rm -rf output_files/*
 ### `bin_merge.py` — Merge Multiple `.bin` Files
 Combines several `.bin` logs into a single output file. This is useful when logs are split across multiple files from the same data collection session.
 
-### `bin_to_ros1bag.py` — Convert `.bin` to ROS1 Bag
-Converts `.bin` files into ROS1 bags containing LiDAR and IMU data.
+### `bin_to_ros1bagC.py` — Convert `.bin` to ROS 1 Bag
+Converts `.bin` files into ROS 1 bags containing LiDAR and IMU data with custom messages.
 
-### `bin_to_ros2bag.py` — Convert `.bin` to ROS2 Bag
-Converts `.bin` files into ROS2 bags containing LiDAR and IMU data.
+### `bin_to_ros2bagC.py` — Convert `.bin` to ROS 2 Bag
+Converts `.bin` files into ROS 2 bags containing LiDAR and IMU data with custom messages.
+
+### `bin_to_ros2bagS.py` — Convert `.bin` to ROS 2 Bag
+Converts `.bin` files into ROS 2 bags containing LiDAR and IMU data with standard messages.
 
 ### `bin_to_tum.py` — Export to TUM Format
 Extracts GPS-based ground-truth data from `.bin` logs and converts it to the widely-used [TUM trajectory format](https://vision.in.tum.de/data/datasets/rgbd-dataset) for use with EVO, and evaluation tool.
