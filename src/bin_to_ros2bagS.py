@@ -12,11 +12,12 @@ from sensor_msgs.msg import Imu, PointCloud2, PointField
 from builtin_interfaces.msg import Time
 from std_msgs.msg import Header
 
-from common import config, livox_pb2
+from common import config, livox_pb2, duro_gps_pb2
 
 TOPICS = {
     'avia_points': ('lidar', livox_pb2.Point_Packet),
     'avia_imu':    ('imu',   livox_pb2.Imu_Data),
+    'duro_gps_utc_time': ('gps', duro_gps_pb2.gps_data)
 }
 
 def process_file(file_obj, writer: SequentialWriter) -> None:
@@ -29,10 +30,9 @@ def process_file(file_obj, writer: SequentialWriter) -> None:
     file_obj.seek(0)
     print(f"DEBUG: Starting to process file. Total size: {total_size / 1e9:.2f} GB")
 
-    first_stamp_ns = None
-    last_stamp_ns = 0
+    lidar_to_host_offsets = []
+    host_to_utc_offsets = []
 
-    message_count = 0
     while True:
         current_pos = file_obj.tell()
         header = file_obj.read(9)
@@ -41,7 +41,7 @@ def process_file(file_obj, writer: SequentialWriter) -> None:
             print(f"DEBUG: Stopped at position {current_pos} out of {total_size} bytes.")
             break
 
-        _, ch_len = struct.unpack('>QB', header)
+        logger_timestamp_ns, ch_len = struct.unpack('>QB', header)
         channel = file_obj.read(ch_len).decode()
 
         length_bytes = file_obj.read(4)
@@ -59,31 +59,48 @@ def process_file(file_obj, writer: SequentialWriter) -> None:
             proto_msg.ParseFromString(payload)
         except Exception as e:
             print(f"INFO: Failed to parse protobuf message. Error: {e}")
-            break 
+            break
 
-        if not hasattr(proto_msg, 'timestamp_us'):
-            print(f"INFO: Skipping message in '{channel}' because it has no 'timestamp_us' field.") # <-- ADD THIS
-            continue
+        if topic_type in ['lidar', 'imu']:
+            if not hasattr(proto_msg, 'timestamp_us'):
+                print(f"INFO: Skipping message in '{channel}' because it has no 'timestamp_us' field.") # <-- ADD THIS
+                continue
 
-        stamp_ns = proto_msg.timestamp_us * 1000
+            stamp_ns = proto_msg.timestamp_us * 1000
 
-        if first_stamp_ns is None:
-            first_stamp_ns = stamp_ns
+            offset = logger_timestamp_ns - stamp_ns
+            lidar_to_host_offsets.append(offset)
         
-        last_stamp_ns = stamp_ns
+            if topic_type == 'lidar':
+                write_lidar_msg_pointcloud2(proto_msg, writer, stamp_ns)
+            else:
+                write_imu_msg(proto_msg, writer, stamp_ns)
+    
+        elif topic_type == 'gps':
+            host_time_ns = proto_msg.system_timestamp_ms * 1_000_000
+            utc_time_ns = proto_msg.sensor_timestamp_ms * 1_000_000
+            
+            # Calculate and store the Host-to-UTC offset
+            offset = utc_time_ns - host_time_ns
+            host_to_utc_offsets.append(offset)
 
-        if topic_type == 'lidar':
-            write_lidar_msg_pointcloud2(proto_msg, writer, stamp_ns)
-        else:
-            write_imu_msg(proto_msg, writer, stamp_ns)
+    if lidar_to_host_offsets:
+        avg_lidar_to_host_offset = sum(lidar_to_host_offsets) / len(lidar_to_host_offsets)
+        print(f"\n✅ Calculated LiDAR-to-Host offset: {avg_lidar_to_host_offset} ns")
+    else:
+        avg_lidar_to_host_offset = 0
+        print("\n⚠️ No LiDAR/IMU messages found to calculate LiDAR-to-Host offset.")
 
-        message_count += 1
+    if host_to_utc_offsets:
+        avg_host_to_utc_offset = sum(host_to_utc_offsets) / len(host_to_utc_offsets)
+        print(f"✅ Calculated Host-to-UTC offset:    {avg_host_to_utc_offset} ns")
+    else:
+        avg_host_to_utc_offset = 0
+        print("⚠️ No GPS messages found to calculate Host-to-UTC offset.")
 
-    if first_stamp_ns is not None:
-        duration_s = (last_stamp_ns - first_stamp_ns) / 1_000_000_000
-        print(f"INFO: First timestamp: {first_stamp_ns}")
-        print(f"INFO: Last timestamp:  {last_stamp_ns}")
-        print(f"DATA DURATION: {duration_s:.2f} seconds")
+    total_offset = avg_lidar_to_host_offset + avg_host_to_utc_offset
+    print(f"✅ TOTAL OFFSET (LiDAR Clock to UTC): {total_offset} ns")
+
 
 def write_lidar_msg_pointcloud2(proto_msg, writer: SequentialWriter, stamp_ns: int) -> None:
     """

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import os
-import glob
 import math
 from collections import defaultdict
+from pathlib import Path
+
 from common import livox_pb2, config
 
 def human_readable_size(num_bytes):
@@ -16,12 +16,15 @@ def human_readable_size(num_bytes):
         num_bytes /= 1024.0
     return f"{num_bytes:.1f} PB"
 
-def validate_point_frame(stats, packet):
+def validate_point_frame(stats, packet, file_timestamps_ms):
     """Validates the internal consistency of a single Point_Packet frame."""
     num_points = packet.num_points
     x_coords_len = len(packet.x_coords)
-
     stats['points_per_packet'][num_points] += 1
+
+    relative_time_s = (file_timestamps_ms - stats['first_timestamp_ms']) / 1000
+    log_entry = (f" Time: {relative_time_s:8.2f}s | {num_points:5} points in packet")
+    stats['point_packets_log'].append(log_entry)
 
     if num_points != x_coords_len:
         stats['warnings'].append(
@@ -87,11 +90,8 @@ def validate_imu_message(stats, msg):
             )
             break
 
-def analyze_bin_file(bin_file_path):
-    """Reads a .bin file from start to finish and generates a detailed validation report."""
-    print("\n" + "="*25 + " ANALYSIS REPORT " + "="*25)
-    print(f"Analyzing file: {bin_file_path}")
-
+def analyze_bin_file(bin_path: Path):
+    """Reads a .bin file and writes a detailed validation report to a .txt alongside it."""
     stats = {
         'channel_counts': defaultdict(int),
         'total_lidar_points': 0,
@@ -104,135 +104,151 @@ def analyze_bin_file(bin_file_path):
         'errors': [],
         'points_per_packet': defaultdict(int),
         'frame_durations_ms': [],
-        'imu_delta_t_ms': []
+        'imu_delta_t_ms': [],
+        'point_packets_log': []
     }
+    lines = []
+    lines.append("="*25 + " ANALYSIS REPORT " + "="*25)
+    lines.append(f"Analyzing file: {bin_path}")
 
     try:
-        with open(bin_file_path, 'rb') as f:
+        with bin_path.open('rb') as f:
             while True:
                 timestamp_bytes = f.read(8)
                 if not timestamp_bytes:
                     break
-                stats['last_timestamp_ms'] = int.from_bytes(timestamp_bytes, byteorder='big')
+                stats['last_timestamp_ms'] = int.from_bytes(timestamp_bytes, 'big')
                 if stats['first_timestamp_ms'] is None:
                     stats['first_timestamp_ms'] = stats['last_timestamp_ms']
-                channel_len = int.from_bytes(f.read(1), byteorder='big')
-                channel_name = f.read(channel_len).decode('utf-8', errors='replace')
-                msg_len = int.from_bytes(f.read(4), byteorder='big')
-                raw_msg_data = f.read(msg_len)
-                if len(raw_msg_data) != msg_len:
+
+                chan_len = int.from_bytes(f.read(1), 'big')
+                channel = f.read(chan_len).decode('utf-8', errors='replace')
+                msg_len = int.from_bytes(f.read(4), 'big')
+                raw = f.read(msg_len)
+                if len(raw) != msg_len:
                     stats['errors'].append("Incomplete message read at end of file.")
                     break
-                stats['channel_counts'][channel_name] += 1
+
+                stats['channel_counts'][channel] += 1
                 try:
-                    if channel_name == "avia_points":
-                        packet = livox_pb2.Point_Packet()
-                        packet.ParseFromString(raw_msg_data)
-                        validate_point_frame(stats, packet)
-                    elif channel_name == "avia_imu":
-                        msg = livox_pb2.Imu_Data()
-                        msg.ParseFromString(raw_msg_data)
-                        validate_imu_message(stats, msg)
+                    if channel == "avia_points":
+                        pkt = livox_pb2.Point_Packet()
+                        pkt.ParseFromString(raw)
+                        validate_point_frame(stats, pkt, stats['last_timestamp_ms'])
+                    elif channel == "avia_imu":
+                        imu = livox_pb2.Imu_Data()
+                        imu.ParseFromString(raw)
+                        validate_imu_message(stats, imu)
                 except Exception as e:
                     stats['errors'].append(
-                        f"CRITICAL: Protobuf parsing failed for channel '{channel_name}': {e}"
+                        f"CRITICAL: Protobuf parsing failed for '{channel}': {e}"
                     )
     except Exception as e:
-        stats['errors'].append(f"A critical error occurred during file reading: {e}")
+        stats['errors'].append(f"Critical error during file read: {e}")
 
-    # Final Report Generation
+    # If file empty or unreadable:
     if stats['first_timestamp_ms'] is None:
-        print(f"\n{'='*67}\nERROR: File appears to be empty or in an unknown format.\n{'='*67}")
-        return
+        lines.append("="*67)
+        lines.append("ERROR: File appears empty or in unknown format.")
+        lines.append("="*67)
+    else:
+        # Summaries
+        dur_s = max(0, (stats['last_timestamp_ms'] - stats['first_timestamp_ms']) / 1000.0)
+        size = bin_path.stat().st_size
+        lines.append("\n--- Recording Summary ---")
+        lines.append(f" - File Size: {human_readable_size(size)}")
+        lines.append(f" - Duration: {dur_s:.2f} seconds")
 
-    duration_s = (stats['last_timestamp_ms'] - stats['first_timestamp_ms']) / 1000.0 if stats['last_timestamp_ms'] > stats['first_timestamp_ms'] else 0
-    file_size = os.path.getsize(bin_file_path)
+        lines.append("\n--- Message Counts & Refresh Rates by Channel ---")
+        for name, cnt in sorted(stats['channel_counts'].items()):
+            rate = (cnt / dur_s) if dur_s > 0 else 0
+            lines.append(f" - {name:<25}: {cnt:>8} msgs, {rate:>6.2f} Hz")
 
-    print("\n--- Recording Summary ---")
-    print(f" - File Size: {human_readable_size(file_size)}")
-    print(f" - Duration: {duration_s:.2f} seconds")
+        # Data loss
+        lines.append("\n--- Data Loss & Integrity Analysis ---")
+        if dur_s > 0:
+            exp_pts = config.LIVOX_AVIA_POINT_RATE * dur_s
+            act_pts = stats['total_lidar_points']
+            drop = max(0, int(exp_pts - act_pts))
+            pct = (drop / exp_pts * 100) if exp_pts>0 else 0
+            lines.append(f" - Expected Point Rate:      {config.LIVOX_AVIA_POINT_RATE:,} pts/sec")
+            lines.append(f" - Expected Points in Total: {int(exp_pts):,}")
+            lines.append(f" - Actual Points Captured:   {act_pts:,}")
+            lines.append(f" - Estimated Dropped Points: {drop:,}")
+            lines.append(f" - Percentage Dropped:       {pct:.2f}%")
+            lines.append("-"*40)
+            lines.append(f" - Actual Avg Point Rate:    {act_pts / dur_s:,.1f} pts/sec")
+            lines.append(f" - Frame Refresh Rate:       {stats['total_lidar_frames'] / dur_s:,.2f} Hz")
+        else:
+            lines.append(" - Not enough data for loss analysis.")
 
-    print("\n--- Message Counts & Refresh Rates by Channel ---")
-    for name, count in sorted(stats['channel_counts'].items()):
-        rate = (count / duration_s) if duration_s > 0 else 0
-        print(f" - {name:<25}: {count:>8} msgs, {rate:>6.2f} Hz")
+        # Frame durations
+        lines.append("\n--- Frame Duration Analysis ---")
+        if stats['frame_durations_ms']:
+            dur = stats['frame_durations_ms']
+            lines += [
+                f" - Target Frame Duration:    {config.LIVOX_AVIA_FRAME_TIME_MS:.1f} ms",
+                f" - Average Frame Duration:   {sum(dur)/len(dur):.2f} ms",
+                f" - Minimum Frame Duration:   {min(dur):.2f} ms",
+                f" - Maximum Frame Duration:   {max(dur):.2f} ms",
+            ]
+        else:
+            lines.append(" - No frame duration data to analyze.")
 
-    print("\n--- Data Loss & Integrity Analysis ---")
-    if duration_s > 0:
-        expected_points = config.LIVOX_AVIA_POINT_RATE * duration_s
-        actual_points = stats['total_lidar_points']
-        dropped_points = max(0, int(expected_points - actual_points))
+        # IMU timing
+        lines.append("\n--- IMU Timing Analysis ---")
+        if stats['imu_delta_t_ms']:
+            d = stats['imu_delta_t_ms']
+            avg = sum(d)/len(d)
+            std = math.sqrt(sum((x-avg)**2 for x in d)/len(d))
+            exp_dt = 1000.0/config.LIVOX_AVIA_IMU_RATE_HZ
+            lines += [
+                f" - Target Interval:          {exp_dt:.2f} ms ({config.LIVOX_AVIA_IMU_RATE_HZ} Hz)",
+                f" - Average Interval:         {avg:.3f} ms",
+                f" - Minimum Interval:         {min(d):.3f} ms",
+                f" - Maximum Interval:         {max(d):.3f} ms",
+                f" - Standard Deviation:       {std:.4f} ms",
+            ]
+        else:
+            lines.append(" - No IMU data to analyze for timing.")
         
-        percentage_dropped = (dropped_points / expected_points) * 100 if expected_points > 0 else 0
+        # LiDAR Packet Log
+        lines.append("\n--- LiDAR Packet Log ---")
+        if stats['point_packets_log']:
+            log_entries = stats['point_packets_log']
+            lines.append(f"Timestamp and point count for all {len(log_entries)} LiDAR packets:")
+            lines.extend(log_entries)
+        else:
+            lines.append(" - No LiDAR packets were found in the log.")
+    
+        # Distribution
+        lines.append("\n--- Packet Point-Count Distribution ---")
+        for c, f in sorted(stats['points_per_packet'].items()):
+            lines.append(f"  {c:5d} points : {f:4d} packets")
 
-        color_code = "\033[92m"  # Green
-        if percentage_dropped > 5.0:
-            color_code = "\033[91m"  # Red
-        elif percentage_dropped > 1.0:
-            color_code = "\033[93m"  # Yellow
+        # Conclusion
+        lines.append("\n--- CONCLUSION ---")
+        if stats['errors'] or stats['warnings']:
+            lines.append("Issues were detected during analysis:")
+            for e in stats['errors']:
+                lines.append(f" - ERROR: {e}")
+            for w in stats['warnings']:
+                lines.append(f" - WARNING: {w}")
+        else:
+            lines.append("Data integrity checks passed. File appears to be healthy.")
 
-        print(f" - Expected Point Rate:      {config.LIVOX_AVIA_POINT_RATE:,} pts/sec")
-        print(f" - Expected Points in Total: {int(expected_points):,}")
-        print(f" - Actual Points Captured:   {actual_points:,}")
-        print(f" - Estimated Dropped Points: {dropped_points:,}")
-        print(f" - Percentage Dropped:       {color_code}{percentage_dropped:.2f}%\033[0m")
-        print("-" * 40)
-        print(f" - Actual Avg Point Rate:    {stats['total_lidar_points'] / duration_s:,.1f} pts/sec")
-        print(f" - Frame Refresh Rate:       {stats['total_lidar_frames'] / duration_s:,.2f} Hz")
-    else:
-        print(" - Not enough data for loss analysis.")
-
-
-    print("\n--- Frame Duration Analysis ---")
-    if stats['frame_durations_ms']:
-        durations = stats['frame_durations_ms']
-        avg_dur = sum(durations) / len(durations)
-        min_dur = min(durations)
-        max_dur = max(durations)
-        print(f" - Target Frame Duration:    {config.LIVOX_AVIA_FRAME_TIME_MS:.1f} ms")
-        print(f" - Average Frame Duration:   {avg_dur:.2f} ms")
-        print(f" - Minimum Frame Duration:   {min_dur:.2f} ms")
-        print(f" - Maximum Frame Duration:   {max_dur:.2f} ms")
-    else:
-        print(" - No frame duration data to analyze.")
-
-    print("\n--- IMU Timing Analysis ---")
-    if stats['imu_delta_t_ms']:
-        deltas = stats['imu_delta_t_ms']
-        avg_delta = sum(deltas) / len(deltas)
-        min_delta = min(deltas)
-        max_delta = max(deltas)
-        std_dev = math.sqrt(sum((x - avg_delta) ** 2 for x in deltas) / len(deltas))
-        expected_delta = 1000.0 / config.LIVOX_AVIA_IMU_RATE_HZ
-
-        print(f" - Target Interval:          {expected_delta:.2f} ms ({config.LIVOX_AVIA_IMU_RATE_HZ} Hz)")
-        print(f" - Average Interval:         {avg_delta:.3f} ms")
-        print(f" - Minimum Interval:         {min_delta:.3f} ms")
-        print(f" - Maximum Interval:         {max_delta:.3f} ms")
-        print(f" - Standard Deviation:       {std_dev:.4f} ms")
-    else:
-        print(" - No IMU data to analyze for timing.")
-
-    print("\n--- Packet Point-Count Distribution (Aggregated Frames) ---")
-    for count, freq in sorted(stats['points_per_packet'].items()):
-        print(f"  {count:5d} points : {freq:4d} packets")
-
-    print("\n--- CONCLUSION ---")
-    if stats['errors'] or stats['warnings']:
-        print(f"\033[93mIssues were detected during analysis:\033[0m")
-        for err in stats['errors']:
-            print(f" - \033[91mERROR:\033[0m {err}")
-        for warn in stats['warnings']:
-            print(f" - \033[93mWARNING:\033[0m {warn}")
-    else:
-        print(f"\033[92mData integrity checks passed. File appears to be healthy.\033[0m")
-
-    print("="*67 + "\n")
+    # Write out to .txt
+    out_path = bin_path.with_suffix('.txt')
+    out_path.write_text("\n".join(lines))
+    # Optional: return the path for further use
+    return out_path
 
 if __name__ == "__main__":
-    bin_files = sorted(glob.glob(os.path.join(config.INPUT_BIN, '*.bin')))
+    bin_dir = Path(config.INPUT_BIN)
+    bin_files = sorted(bin_dir.glob('*.bin'))
     if not bin_files:
-        print(f"No .bin files found in the directory: {config.INPUT_BIN}")
+        print(f"No .bin files found in directory: {bin_dir}")
     else:
-        for file_path in bin_files:
-            analyze_bin_file(file_path)
+        for bf in bin_files:
+            report = analyze_bin_file(bf)
+            print(f"Wrote report to: {report}")
