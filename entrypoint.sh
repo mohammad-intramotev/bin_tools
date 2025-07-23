@@ -33,7 +33,7 @@ case "$COMMAND" in
         python3 bin_to_tum.py
         ;;
     6)
-        python3 traj_cmp.py
+        python3 tum_cmp.py
         ;;
     7)
         python3 bin_diagnose.py

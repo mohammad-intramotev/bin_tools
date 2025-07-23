@@ -1,4 +1,3 @@
-# Save this as sync_and_parse.py
 import os
 import sys
 import glob
@@ -109,4 +108,4 @@ if __name__ == '__main__':
     bin_files = glob.glob(os.path.join(config.INPUT_TUM_DIR, "*.bin"))
     input_bin_file = bin_files[0]
     print(f"Found binary file: {input_bin_file}")
-    process_log_file(input_bin_file, config.INPUT_TRAJ_2, config.OUTPUT_TUM_DIR)
+    process_log_file(input_bin_file, config.INPUT_TRAJ_2, config.OUTPUT_TUM_FILE)

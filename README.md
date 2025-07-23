@@ -53,7 +53,7 @@ Converts `.bin` files into ROS 2 bags containing LiDAR and IMU data with standar
 ### `bin_to_tum.py` — Export to TUM Format
 Extracts GPS-based ground-truth data from `.bin` logs and converts it to the widely-used [TUM trajectory format](https://vision.in.tum.de/data/datasets/rgbd-dataset) for use with EVO, and evaluation tool.
 
-### `traj_cmp.py` — Compare Trajectories
+### `tum_cmp.py` — Compare Trajectories
 Takes two trajectory files (e.g., estimated vs ground truth) and computes error metrics such as RMSE, ATE, and relative pose error.
 
 ### `bin_diagnose.py` — Diagnose .bin Logs

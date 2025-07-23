@@ -7,10 +7,10 @@ INPUT_MERGE_DIR = f"{INPUT_FILES}/merge_bins/"
 INPUT_ROSBAG_BIN = f"{INPUT_FILES}/ros_bins/"
 # --- For bin_to_tum.py
 INPUT_TUM_DIR = f"{INPUT_FILES}/tum_bins/"
-# --- For traj_cmp.py
+# --- For tum_cmp.py
 INPUT_TRAJ_1 = f"{INPUT_FILES}/tum_cmp/ground_truth.txt" # Ground truth trajectory
-# --- For bin_to_tum.py, traj_cmp.py
-INPUT_TRAJ_2 = f"{INPUT_FILES}/tum_cmp/traj_imu.txt" # Estimated trajectory
+# --- For bin_to_tum.py, tum_cmp.py
+INPUT_TRAJ_2 = f"{INPUT_FILES}/tum_cmp/traj_lidar.txt" # Estimated trajectory
 # --- For bin_diagnose
 INPUT_BIN = f"{INPUT_FILES}/bins/"
 
@@ -21,8 +21,8 @@ OUTPUT_ROS1BAGS = f"{OUTPUT_FILES}/ros1_bags/"
 # --- For bin_to_ros12bag<x>
 OUTPUT_ROS2BAGS = f"{OUTPUT_FILES}/ros2_bags/"
 # --- For bin_to_tum.py
-OUTPUT_TUM_DIR= f"{OUTPUT_FILES}/tum_files/ground_truth.txt"
-# --- For traj_cmp.py
+OUTPUT_TUM_FILE= f"{OUTPUT_FILES}/tum_files/ground_truth.txt"
+# --- For tum_cmp.py
 OUTPUT_TRAJ_FILES = f"{OUTPUT_FILES}/traj_files/"
 
 # --- For bin_to_ros1bag.py
@@ -44,3 +44,6 @@ IMU_ORIENTATION_CHANNEL_NAME = "parse_duro_orient_euler"
 LIVOX_AVIA_POINT_RATE = 240000  # Avia spec: 240k pts/sec (single return mode)
 LIVOX_AVIA_FRAME_TIME_MS = 200
 LIVOX_AVIA_IMU_RATE_HZ = 200
+
+
+T_MAX_DIFF = 0.05
