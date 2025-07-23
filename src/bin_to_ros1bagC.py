@@ -105,10 +105,9 @@ def write_imu_msg(proto_msg, bag: rosbag.Bag, stamp: rospy.Time) -> None:
     imu.angular_velocity.y = proto_msg.gyro_y
     imu.angular_velocity.z = proto_msg.gyro_z
 
-    g = config.GRAVITY_ACCEL
-    imu.linear_acceleration.x = proto_msg.acc_x * g
-    imu.linear_acceleration.y = proto_msg.acc_y * g
-    imu.linear_acceleration.z = proto_msg.acc_z * g
+    imu.linear_acceleration.x = proto_msg.acc_x
+    imu.linear_acceleration.y = proto_msg.acc_y
+    imu.linear_acceleration.z = proto_msg.acc_z
 
     bag.write(config.IMU_TOPIC, imu, stamp)
 

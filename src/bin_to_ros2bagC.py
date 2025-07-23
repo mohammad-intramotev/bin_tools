@@ -106,10 +106,9 @@ def write_imu_msg(proto_msg, writer: SequentialWriter, stamp_ns: int) -> None:
     imu_msg.angular_velocity.y = proto_msg.gyro_y
     imu_msg.angular_velocity.z = proto_msg.gyro_z
 
-    g = config.GRAVITY_ACCEL
-    imu_msg.linear_acceleration.x = proto_msg.acc_x * g
-    imu_msg.linear_acceleration.y = proto_msg.acc_y * g
-    imu_msg.linear_acceleration.z = proto_msg.acc_z * g
+    imu_msg.linear_acceleration.x = proto_msg.acc_x
+    imu_msg.linear_acceleration.y = proto_msg.acc_y
+    imu_msg.linear_acceleration.z = proto_msg.acc_z
 
     serialized_msg = serialize_message(imu_msg)
     writer.write(config.IMU_TOPIC, serialized_msg, stamp_ns)

@@ -25,8 +25,7 @@ OUTPUT_TUM_FILE= f"{OUTPUT_FILES}/tum_files/ground_truth.txt"
 # --- For tum_cmp.py
 OUTPUT_TRAJ_FILES = f"{OUTPUT_FILES}/traj_files/"
 
-# --- For bin_to_ros1bag.py
-GRAVITY_ACCEL = 9.80665  # m/s^2
+# --- For bin_to_ros<x>bag<x>.py
 LIDAR_FRAME_ID = "lidar"
 IMU_FRAME_ID = "imu"
 LIDAR_TOPIC = "/livox/lidar"
@@ -35,15 +34,8 @@ IMU_TOPIC = "/livox/imu"
 # --- For bin_to_tum.py
 POS_CHANNEL_NAME = "duro_gps_llh"
 ORIENT_CHANNEL_NAME = "duro_gps_orient_eule"
-MAX_GPS_FUSION_AGE_MS = 75
-LIDAR_CHANNEL_NAME = "parse_livox_point_packet"
-IMU_ACCEL_GYRO_CHANNEL_NAME = "parse_livox_imu_data"
-IMU_ORIENTATION_CHANNEL_NAME = "parse_duro_orient_euler"
 
 # --- For bin_diagnose.py
 LIVOX_AVIA_POINT_RATE = 240000  # Avia spec: 240k pts/sec (single return mode)
 LIVOX_AVIA_FRAME_TIME_MS = 200
 LIVOX_AVIA_IMU_RATE_HZ = 200
-
-
-T_MAX_DIFF = 0.05
