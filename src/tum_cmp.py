@@ -15,9 +15,9 @@ def tum_cmp():
     print("--- [1/3] Running evo_traj to plot trajectories ---")
     subprocess.run([
         'evo_traj', 'tum',
-        config.INPUT_TRAJ_1,
-        config.INPUT_TRAJ_2,
-        '--ref', config.INPUT_TRAJ_1,
+        config.INPUT_REF_TRAJ,
+        config.INPUT_EST_TRAJ,
+        '--ref', config.INPUT_REF_TRAJ,
         '-v',
         '--plot',
         '--align_origin',  # Aligns start points for a cleaner plot
@@ -29,8 +29,8 @@ def tum_cmp():
     print("\n--- [2/3] Running evo_ape for Absolute Pose Error ---")
     subprocess.run([
         'evo_ape', 'tum',
-        config.INPUT_TRAJ_1,
-        config.INPUT_TRAJ_2,
+        config.INPUT_REF_TRAJ,
+        config.INPUT_EST_TRAJ,
         '-va',
         '--plot',
         '--plot_mode', 'xyz',
@@ -43,8 +43,8 @@ def tum_cmp():
     print("\n--- [3/3] Running evo_rpe for Relative Pose Error ---")
     subprocess.run([
         'evo_rpe', 'tum',
-        config.INPUT_TRAJ_1,
-        config.INPUT_TRAJ_2,
+        config.INPUT_REF_TRAJ,
+        config.INPUT_EST_TRAJ,
         '-va',
         '--plot',
         '--align',

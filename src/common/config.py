@@ -8,9 +8,9 @@ INPUT_ROSBAG_BIN = f"{INPUT_FILES}/ros_bins/"
 # --- For bin_to_tum.py
 INPUT_TUM_DIR = f"{INPUT_FILES}/tum_bins/"
 # --- For tum_cmp.py
-INPUT_TRAJ_1 = f"{INPUT_FILES}/tum_cmp/ground_truth.txt" # Ground truth trajectory
+INPUT_REF_TRAJ = f"{INPUT_FILES}/tum_cmp/ground_truth.txt" # Ground truth trajectory
 # --- For bin_to_tum.py, tum_cmp.py
-INPUT_TRAJ_2 = f"{INPUT_FILES}/tum_cmp/traj_lidar.txt" # Estimated trajectory
+INPUT_EST_TRAJ = f"{INPUT_FILES}/tum_cmp/traj_lidar.txt" # Estimated trajectory
 # --- For bin_diagnose
 INPUT_BIN = f"{INPUT_FILES}/bins/"
 
